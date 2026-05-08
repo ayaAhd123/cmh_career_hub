@@ -20,7 +20,6 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import logo from "@/assets/logo.png";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
