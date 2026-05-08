@@ -153,11 +153,6 @@ function PromotionDetail() {
             </div>
             <div className="flex items-center gap-2">
               <StatusBadge status={promotionStatus(promotion)} />
-              <Button asChild variant="outline" size="sm">
-                <Link to="/promotions/$id/calendar" params={{ id: promotion.id }}>
-                  <Calendar className="mr-1 h-4 w-4" /> Calendar
-                </Link>
-              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
