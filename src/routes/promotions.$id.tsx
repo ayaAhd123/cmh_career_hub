@@ -56,7 +56,11 @@ const COLORS: Record<string, string> = {
 function PromotionDetail() {
   const { id } = Route.useParams();
   const promotion = useStore((s) => s.promotions.find((p) => p.id === id));
-  const candidates = useStore((s) => s.candidates.filter((c) => c.promotionId === id && !c.archived));
+  const allCandidates = useStore((s) => s.candidates);
+  const candidates = useMemo(
+    () => allCandidates.filter((c) => c.promotionId === id && !c.archived),
+    [allCandidates, id],
+  );
   const archive = useStore((s) => s.archivePromotion);
   const nav = useNavigate();
   const [search, setSearch] = useState("");

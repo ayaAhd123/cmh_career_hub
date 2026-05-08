@@ -13,8 +13,9 @@ function SettingsPage() {
   const reset = useStore((s) => s.resetSeed);
   const restore = useStore((s) => s.restoreCandidate);
   const hardDelete = useStore((s) => s.hardDeleteCandidate);
-  const archived = useStore((s) => s.candidates.filter((c) => c.archived));
+  const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
+  const archived = useMemo(() => allCandidates.filter((c) => c.archived), [allCandidates]);
 
   return (
     <div className="space-y-6">

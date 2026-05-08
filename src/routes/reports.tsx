@@ -18,8 +18,9 @@ export const Route = createFileRoute("/reports")({
 });
 
 function Reports() {
-  const candidates = useStore((s) => s.candidates.filter((c) => !c.archived));
+  const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
+  const candidates = useMemo(() => allCandidates.filter((c) => !c.archived), [allCandidates]);
   const [candId, setCandId] = useState<string>("");
   const [candFmt, setCandFmt] = useState<"pdf" | "xlsx" | "html">("pdf");
   const [promoId, setPromoId] = useState<string>("");
