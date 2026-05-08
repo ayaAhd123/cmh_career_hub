@@ -9,38 +9,186 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as GraduatesRouteImport } from './routes/graduates'
+import { Route as AiAdvisorRouteImport } from './routes/ai-advisor'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PromotionsIndexRouteImport } from './routes/promotions.index'
+import { Route as CandidatesIndexRouteImport } from './routes/candidates.index'
+import { Route as PromotionsIdRouteImport } from './routes/promotions.$id'
+import { Route as CandidatesIdRouteImport } from './routes/candidates.$id'
+import { Route as PromotionsIdCalendarRouteImport } from './routes/promotions.$id.calendar'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GraduatesRoute = GraduatesRouteImport.update({
+  id: '/graduates',
+  path: '/graduates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiAdvisorRoute = AiAdvisorRouteImport.update({
+  id: '/ai-advisor',
+  path: '/ai-advisor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PromotionsIndexRoute = PromotionsIndexRouteImport.update({
+  id: '/promotions/',
+  path: '/promotions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CandidatesIndexRoute = CandidatesIndexRouteImport.update({
+  id: '/candidates/',
+  path: '/candidates/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromotionsIdRoute = PromotionsIdRouteImport.update({
+  id: '/promotions/$id',
+  path: '/promotions/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CandidatesIdRoute = CandidatesIdRouteImport.update({
+  id: '/candidates/$id',
+  path: '/candidates/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromotionsIdCalendarRoute = PromotionsIdCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => PromotionsIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai-advisor': typeof AiAdvisorRoute
+  '/graduates': typeof GraduatesRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
+  '/candidates/$id': typeof CandidatesIdRoute
+  '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/candidates/': typeof CandidatesIndexRoute
+  '/promotions/': typeof PromotionsIndexRoute
+  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-advisor': typeof AiAdvisorRoute
+  '/graduates': typeof GraduatesRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
+  '/candidates/$id': typeof CandidatesIdRoute
+  '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/candidates': typeof CandidatesIndexRoute
+  '/promotions': typeof PromotionsIndexRoute
+  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai-advisor': typeof AiAdvisorRoute
+  '/graduates': typeof GraduatesRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
+  '/candidates/$id': typeof CandidatesIdRoute
+  '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/candidates/': typeof CandidatesIndexRoute
+  '/promotions/': typeof PromotionsIndexRoute
+  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/ai-advisor'
+    | '/graduates'
+    | '/reports'
+    | '/settings'
+    | '/candidates/$id'
+    | '/promotions/$id'
+    | '/candidates/'
+    | '/promotions/'
+    | '/promotions/$id/calendar'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/ai-advisor'
+    | '/graduates'
+    | '/reports'
+    | '/settings'
+    | '/candidates/$id'
+    | '/promotions/$id'
+    | '/candidates'
+    | '/promotions'
+    | '/promotions/$id/calendar'
+  id:
+    | '__root__'
+    | '/'
+    | '/ai-advisor'
+    | '/graduates'
+    | '/reports'
+    | '/settings'
+    | '/candidates/$id'
+    | '/promotions/$id'
+    | '/candidates/'
+    | '/promotions/'
+    | '/promotions/$id/calendar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiAdvisorRoute: typeof AiAdvisorRoute
+  GraduatesRoute: typeof GraduatesRoute
+  ReportsRoute: typeof ReportsRoute
+  SettingsRoute: typeof SettingsRoute
+  CandidatesIdRoute: typeof CandidatesIdRoute
+  PromotionsIdRoute: typeof PromotionsIdRouteWithChildren
+  CandidatesIndexRoute: typeof CandidatesIndexRoute
+  PromotionsIndexRoute: typeof PromotionsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/graduates': {
+      id: '/graduates'
+      path: '/graduates'
+      fullPath: '/graduates'
+      preLoaderRoute: typeof GraduatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-advisor': {
+      id: '/ai-advisor'
+      path: '/ai-advisor'
+      fullPath: '/ai-advisor'
+      preLoaderRoute: typeof AiAdvisorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +196,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/promotions/': {
+      id: '/promotions/'
+      path: '/promotions'
+      fullPath: '/promotions/'
+      preLoaderRoute: typeof PromotionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/candidates/': {
+      id: '/candidates/'
+      path: '/candidates'
+      fullPath: '/candidates/'
+      preLoaderRoute: typeof CandidatesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/promotions/$id': {
+      id: '/promotions/$id'
+      path: '/promotions/$id'
+      fullPath: '/promotions/$id'
+      preLoaderRoute: typeof PromotionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/candidates/$id': {
+      id: '/candidates/$id'
+      path: '/candidates/$id'
+      fullPath: '/candidates/$id'
+      preLoaderRoute: typeof CandidatesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/promotions/$id/calendar': {
+      id: '/promotions/$id/calendar'
+      path: '/calendar'
+      fullPath: '/promotions/$id/calendar'
+      preLoaderRoute: typeof PromotionsIdCalendarRouteImport
+      parentRoute: typeof PromotionsIdRoute
+    }
   }
 }
 
+interface PromotionsIdRouteChildren {
+  PromotionsIdCalendarRoute: typeof PromotionsIdCalendarRoute
+}
+
+const PromotionsIdRouteChildren: PromotionsIdRouteChildren = {
+  PromotionsIdCalendarRoute: PromotionsIdCalendarRoute,
+}
+
+const PromotionsIdRouteWithChildren = PromotionsIdRoute._addFileChildren(
+  PromotionsIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiAdvisorRoute: AiAdvisorRoute,
+  GraduatesRoute: GraduatesRoute,
+  ReportsRoute: ReportsRoute,
+  SettingsRoute: SettingsRoute,
+  CandidatesIdRoute: CandidatesIdRoute,
+  PromotionsIdRoute: PromotionsIdRouteWithChildren,
+  CandidatesIndexRoute: CandidatesIndexRoute,
+  PromotionsIndexRoute: PromotionsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
