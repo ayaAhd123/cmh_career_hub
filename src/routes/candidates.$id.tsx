@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CategoryBadge, StatusBadge } from "@/components/badges";
 import {
-  categoryFor, formatDate, overallAverage, skillsAvg, testsAvg,
+  categoryFor, disciplineAvg, formatDate, overallAverage, skillsAvg, testsAvg, workAvg,
 } from "@/lib/calc";
 import { ArrowLeft, Download, Trash2 } from "lucide-react";
 import {
@@ -20,11 +19,28 @@ import {
 } from "@/components/ui/select";
 import { exportCandidatePDF, exportCandidateExcel, exportCandidateHTML } from "@/lib/exports";
 import { toast } from "sonner";
+import type { DisciplineSkills, WorkSkills } from "@/lib/types";
 
 export const Route = createFileRoute("/candidates/$id")({
-  head: ({ params }) => ({ meta: [{ title: `Candidate ${params.id} — Career-Hub` }] }),
+  head: ({ params }) => ({ meta: [{ title: `Candidate ${params.id} — CareerHub` }] }),
   component: CandidateDetail,
 });
+
+const DISCIPLINE_FIELDS: { key: keyof DisciplineSkills; label: string }[] = [
+  { key: "discipline", label: "Discipline et ponctualité" },
+  { key: "motivation", label: "Motivation" },
+  { key: "communication", label: "Communication" },
+  { key: "listening", label: "Sens de l'écoute" },
+];
+
+const WORK_FIELDS: { key: keyof WorkSkills; label: string }[] = [
+  { key: "initiative", label: "Sens de l'initiative" },
+  { key: "analysis", label: "Capacité d'analyse" },
+  { key: "organization", label: "Organisation" },
+  { key: "intellectual", label: "Aptitudes intellectuelles" },
+  { key: "pace", label: "Rythme d'avancement" },
+  { key: "speed", label: "Rapidité d'exécution des tâches" },
+];
 
 function CandidateDetail() {
   const { id } = Route.useParams();
@@ -33,18 +49,24 @@ function CandidateDetail() {
     candidate ? s.promotions.find((p) => p.id === candidate.promotionId) : undefined,
   );
   const setSkills = useStore((s) => s.setSkills);
-  const addTest = useStore((s) => s.addTest);
-  const updateTest = useStore((s) => s.updateTest);
-  const removeTest = useStore((s) => s.removeTest);
-  const updateModule = useStore((s) => s.updateModule);
+  const updateModuleScore = useStore((s) => s.updateModuleScore);
   const changeStatus = useStore((s) => s.changeStatus);
   const archive = useStore((s) => s.archiveCandidate);
   const nav = useNavigate();
 
-  const [newTest, setNewTest] = useState({ name: "", score: 0, date: new Date().toISOString().slice(0, 10) });
-
   if (!candidate) return <p>Not found</p>;
   const avg = overallAverage(candidate);
+
+  const setDisc = (key: keyof DisciplineSkills, val: number) =>
+    setSkills(candidate.id, {
+      ...candidate.skills,
+      discipline: { ...candidate.skills.discipline, [key]: val },
+    });
+  const setWork = (key: keyof WorkSkills, val: number) =>
+    setSkills(candidate.id, {
+      ...candidate.skills,
+      work: { ...candidate.skills.work, [key]: val },
+    });
 
   return (
     <div className="space-y-6">
@@ -128,7 +150,6 @@ function CandidateDetail() {
         <TabsList>
           <TabsTrigger value="info">Personal Info</TabsTrigger>
           <TabsTrigger value="skills">Skills</TabsTrigger>
-          <TabsTrigger value="tests">Tests</TabsTrigger>
           <TabsTrigger value="modules">Modules</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
@@ -147,176 +168,128 @@ function CandidateDetail() {
         </TabsContent>
 
         <TabsContent value="skills">
-          <Card>
-            <CardContent className="p-6 space-y-5">
-              {(
-                [
-                  ["communication", "Communication"],
-                  ["technical", "Technical Skills"],
-                  ["teamwork", "Teamwork"],
-                  ["problemSolving", "Problem Solving"],
-                  ["adaptability", "Adaptability"],
-                ] as const
-              ).map(([key, label]) => (
-                <div key={key} className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label>{label}</Label>
-                    <span className="font-semibold">{candidate.skills[key].toFixed(1)} / 5</span>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Discipline (/5 each)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {DISCIPLINE_FIELDS.map(({ key, label }) => (
+                  <div key={key} className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-sm">{label}</Label>
+                      <span className="font-semibold text-sm">
+                        {candidate.skills.discipline[key].toFixed(1)} / 5
+                      </span>
+                    </div>
+                    <Slider
+                      value={[candidate.skills.discipline[key]]}
+                      min={0}
+                      max={5}
+                      step={0.5}
+                      onValueChange={(v) => setDisc(key, v[0])}
+                    />
                   </div>
-                  <Slider
-                    value={[candidate.skills[key]]}
-                    min={0}
-                    max={5}
-                    step={0.5}
-                    onValueChange={(v) => setSkills(candidate.id, { ...candidate.skills, [key]: v[0] })}
-                  />
+                ))}
+                <div className="pt-3 border-t flex justify-between">
+                  <span className="font-medium">Discipline Avg</span>
+                  <span className="text-lg font-bold text-primary">
+                    {disciplineAvg(candidate.skills.discipline).toFixed(2)} / 5
+                  </span>
                 </div>
-              ))}
-              <div className="pt-4 border-t flex justify-between">
-                <span className="font-medium">Skills Average</span>
-                <span className="text-xl font-bold text-primary">{skillsAvg(candidate.skills).toFixed(2)} / 5</span>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Work Skills (/5 each)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {WORK_FIELDS.map(({ key, label }) => (
+                  <div key={key} className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label className="text-sm">{label}</Label>
+                      <span className="font-semibold text-sm">
+                        {candidate.skills.work[key].toFixed(1)} / 5
+                      </span>
+                    </div>
+                    <Slider
+                      value={[candidate.skills.work[key]]}
+                      min={0}
+                      max={5}
+                      step={0.5}
+                      onValueChange={(v) => setWork(key, v[0])}
+                    />
+                  </div>
+                ))}
+                <div className="pt-3 border-t flex justify-between">
+                  <span className="font-medium">Work Skills Avg</span>
+                  <span className="text-lg font-bold text-primary">
+                    {workAvg(candidate.skills.work).toFixed(2)} / 5
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="md:col-span-2">
+              <CardContent className="p-4 flex justify-between items-center">
+                <span className="font-medium">Skills Average (overall)</span>
+                <span className="text-2xl font-bold text-primary">
+                  {skillsAvg(candidate.skills).toFixed(2)} / 5
+                </span>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="tests">
+        <TabsContent value="modules">
           <Card>
-            <CardHeader><CardTitle>Tests (/20)</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeader>
+              <CardTitle>Modules (each /20)</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Tests = Modules. 5 standard modules per promotion.
+              </p>
+            </CardHeader>
+            <CardContent>
               <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs uppercase text-muted-foreground border-b">
-                  <th className="py-2">Name</th><th className="py-2">Date</th><th className="py-2">Score</th><th></th>
-                </tr></thead>
+                <thead>
+                  <tr className="text-left text-xs uppercase text-muted-foreground border-b">
+                    <th className="py-2 px-2 w-10">#</th>
+                    <th className="py-2 px-2">Module</th>
+                    <th className="py-2 px-2 w-32">Score / 20</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {candidate.tests.map((t) => (
-                    <tr key={t.id} className="border-b">
-                      <td className="py-2">{t.name}</td>
-                      <td className="py-2 text-muted-foreground">{formatDate(t.date)}</td>
-                      <td className="py-2">
+                  {candidate.modules.map((m) => (
+                    <tr key={m.id} className="border-b">
+                      <td className="py-2 px-2 font-mono">{m.id}</td>
+                      <td className="py-2 px-2 font-medium">{m.name}</td>
+                      <td className="py-2 px-2">
                         <Input
                           type="number"
-                          value={t.score}
                           min={0}
                           max={20}
                           step={0.1}
-                          className="w-20"
-                          onChange={(e) => updateTest(candidate.id, t.id, { score: parseFloat(e.target.value) || 0 })}
+                          className="w-24"
+                          value={m.score}
+                          onChange={(e) =>
+                            updateModuleScore(
+                              candidate.id,
+                              m.id,
+                              Math.min(20, Math.max(0, parseFloat(e.target.value) || 0)),
+                            )
+                          }
                         />
-                      </td>
-                      <td className="py-2">
-                        <Button size="icon" variant="ghost" onClick={() => removeTest(candidate.id, t.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div className="flex justify-between font-medium pt-2">
-                <span>Tests Average</span>
-                <span className="text-primary">{testsAvg(candidate.tests).toFixed(2)} / 20</span>
-              </div>
-
-              <div className="flex items-end gap-2 pt-3 border-t">
-                <div className="flex-1">
-                  <Label>Test Name</Label>
-                  <Input value={newTest.name} onChange={(e) => setNewTest({ ...newTest, name: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Score /20</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={20}
-                    step={0.1}
-                    className="w-24"
-                    value={newTest.score}
-                    onChange={(e) => setNewTest({ ...newTest, score: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div>
-                  <Label>Date</Label>
-                  <Input type="date" value={newTest.date} onChange={(e) => setNewTest({ ...newTest, date: e.target.value })} />
-                </div>
-                <Button
-                  onClick={() => {
-                    if (!newTest.name) return toast.error("Name required");
-                    addTest(candidate.id, newTest);
-                    setNewTest({ name: "", score: 0, date: new Date().toISOString().slice(0, 10) });
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="modules">
-          <Card>
-            <CardHeader><CardTitle>Module Performance (25 days)</CardTitle></CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs uppercase text-muted-foreground border-b">
-                      <th className="py-2 px-2">Day</th>
-                      <th className="py-2 px-2">Date</th>
-                      <th className="py-2 px-2">Module</th>
-                      <th className="py-2 px-2">Score</th>
-                      <th className="py-2 px-2">Part.</th>
-                      <th className="py-2 px-2">Disc.</th>
-                      <th className="py-2 px-2">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {candidate.modules.map((m) => (
-                      <tr
-                        key={m.day}
-                        className={`border-b ${m.status === "Completed" ? "bg-success/5" : m.status === "Holiday" ? "bg-warning/5" : ""}`}
-                      >
-                        <td className="py-2 px-2 font-mono">{m.day}</td>
-                        <td className="py-2 px-2 text-xs text-muted-foreground">{formatDate(m.date)}</td>
-                        <td className="py-2 px-2">{m.title}</td>
-                        <td className="py-2 px-2">
-                          <Input
-                            type="number" min={0} max={20} step={0.1}
-                            className="w-20"
-                            value={m.score ?? ""}
-                            onChange={(e) =>
-                              updateModule(candidate.id, m.day, { score: parseFloat(e.target.value) || 0 })
-                            }
-                          />
-                        </td>
-                        <td className="py-2 px-2">
-                          <Input type="number" min={0} max={5} step={0.5} className="w-16"
-                            value={m.participation ?? ""}
-                            onChange={(e) => updateModule(candidate.id, m.day, { participation: parseFloat(e.target.value) || 0 })} />
-                        </td>
-                        <td className="py-2 px-2">
-                          <Input type="number" min={0} max={5} step={0.5} className="w-16"
-                            value={m.discipline ?? ""}
-                            onChange={(e) => updateModule(candidate.id, m.day, { discipline: parseFloat(e.target.value) || 0 })} />
-                        </td>
-                        <td className="py-2 px-2">
-                          <Select
-                            value={m.status}
-                            onValueChange={(v) => updateModule(candidate.id, m.day, { status: v as never })}
-                          >
-                            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Not Started">Not Started</SelectItem>
-                              <SelectItem value="In Progress">In Progress</SelectItem>
-                              <SelectItem value="Completed">Completed</SelectItem>
-                              <SelectItem value="Holiday">Holiday</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex justify-between font-medium pt-4 border-t mt-3">
+                <span>Modules Average</span>
+                <span className="text-primary text-lg font-bold">
+                  {testsAvg(candidate.modules).toFixed(2)} / 20
+                </span>
               </div>
             </CardContent>
           </Card>

@@ -9,7 +9,7 @@ import { categoryFor, overallAverage } from "@/lib/calc";
 import { ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/candidates/")({
-  head: () => ({ meta: [{ title: "All Candidates — Career-Hub" }] }),
+  head: () => ({ meta: [{ title: "All Candidates — CareerHub" }] }),
   component: AllCandidates,
 });
 

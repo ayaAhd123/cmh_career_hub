@@ -11,9 +11,10 @@ import {
   exportCandidatePDF, exportCandidateExcel, exportCandidateHTML,
   exportPromotionPDF, exportPromotionExcel, exportPromotionCSV, exportPromotionHTML,
 } from "@/lib/exports";
+import { SearchSelect } from "@/components/search-select";
 
 export const Route = createFileRoute("/reports")({
-  head: () => ({ meta: [{ title: "Reports & Exports — Career-Hub" }] }),
+  head: () => ({ meta: [{ title: "Reports & Exports — CareerHub" }] }),
   component: Reports,
 });
 
@@ -25,6 +26,20 @@ function Reports() {
   const [candFmt, setCandFmt] = useState<"pdf" | "xlsx" | "html">("pdf");
   const [promoId, setPromoId] = useState<string>("");
   const [promoFmt, setPromoFmt] = useState<"pdf" | "xlsx" | "csv" | "html">("pdf");
+
+  const candOpts = useMemo(
+    () =>
+      candidates.map((c) => ({
+        value: c.id,
+        label: `${c.firstName} ${c.lastName}`,
+        sublabel: c.email,
+      })),
+    [candidates],
+  );
+  const promoOpts = useMemo(
+    () => promotions.map((p) => ({ value: p.id, label: `${p.id} — ${p.name}`, sublabel: p.name })),
+    [promotions],
+  );
 
   const genCand = () => {
     const c = candidates.find((x) => x.id === candId);
@@ -52,16 +67,14 @@ function Reports() {
         <CardHeader><CardTitle>Individual Candidate Report</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-64">
-            <Select value={candId} onValueChange={setCandId}>
-              <SelectTrigger><SelectValue placeholder="Select candidate" /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                {candidates.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.firstName} {c.lastName} — {c.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={candId}
+              onChange={setCandId}
+              options={candOpts}
+              placeholder="Search & select candidate..."
+              emptyText="No candidate found."
+              className="w-full"
+            />
           </div>
           <Select value={candFmt} onValueChange={(v) => setCandFmt(v as never)}>
             <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
@@ -81,16 +94,14 @@ function Reports() {
         <CardHeader><CardTitle>Promotion Report</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-64">
-            <Select value={promoId} onValueChange={setPromoId}>
-              <SelectTrigger><SelectValue placeholder="Select promotion" /></SelectTrigger>
-              <SelectContent>
-                {promotions.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.id} — {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={promoId}
+              onChange={setPromoId}
+              options={promoOpts}
+              placeholder="Search & select promotion..."
+              emptyText="No promotion found."
+              className="w-full"
+            />
           </div>
           <Select value={promoFmt} onValueChange={(v) => setPromoFmt(v as never)}>
             <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>

@@ -1,16 +1,21 @@
-import type { Candidate, Category, Promotion, Skills } from "./types";
+import type { Candidate, Category, DisciplineSkills, ModuleScore, Promotion, Skills, WorkSkills } from "./types";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 
-export const skillsAvg = (s: Skills): number =>
-  (s.communication + s.technical + s.teamwork + s.problemSolving + s.adaptability) / 5;
+export const disciplineAvg = (d: DisciplineSkills): number =>
+  (d.discipline + d.motivation + d.communication + d.listening) / 4;
 
-export const testsAvg = (tests: { score: number }[]): number =>
-  tests.length === 0 ? 0 : tests.reduce((a, t) => a + t.score, 0) / tests.length;
+export const workAvg = (w: WorkSkills): number =>
+  (w.initiative + w.analysis + w.organization + w.intellectual + w.pace + w.speed) / 6;
+
+export const skillsAvg = (s: Skills): number =>
+  (disciplineAvg(s.discipline) + workAvg(s.work)) / 2;
+
+export const testsAvg = (modules: ModuleScore[]): number =>
+  modules.length === 0 ? 0 : modules.reduce((a, m) => a + (m.score || 0), 0) / modules.length;
 
 export const overallAverage = (c: Candidate): number => {
   const sa = skillsAvg(c.skills); // 0-5
-  const ta = testsAvg(c.tests); // 0-20
-  // Formula: (skills_avg × 4 + tests_avg) / 2  -> sa*4 maps 0-5 to 0-20
+  const ta = testsAvg(c.modules); // 0-20
   return Math.round(((sa * 4 + ta) / 2) * 100) / 100;
 };
 
@@ -23,14 +28,10 @@ export const categoryFor = (avg: number): Category => {
 
 export const categoryColor = (c: Category) => {
   switch (c) {
-    case "Excellent":
-      return "bg-excellent text-white";
-    case "Good":
-      return "bg-good text-white";
-    case "Passable":
-      return "bg-passable text-white";
-    case "Critical":
-      return "bg-critical text-white";
+    case "Excellent": return "bg-excellent text-white";
+    case "Good": return "bg-good text-white";
+    case "Passable": return "bg-passable text-white";
+    case "Critical": return "bg-critical text-white";
   }
 };
 
@@ -39,7 +40,6 @@ export const calcEndDate = (start: string) =>
 
 export const promotionProgress = (p: Promotion) => {
   const totalWorking = 25;
-  // For demo: progress based on calendar days elapsed mapped to 25 working days
   const start = parseISO(p.startDate);
   const today = new Date();
   const elapsed = Math.max(0, differenceInCalendarDays(today, start));

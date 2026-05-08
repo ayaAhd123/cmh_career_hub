@@ -2,7 +2,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import type { Candidate, Promotion } from "./types";
-import { categoryFor, formatDate, overallAverage, passRate, skillsAvg, testsAvg, turnoverRate } from "./calc";
+import {
+  categoryFor, disciplineAvg, formatDate, overallAverage, passRate, skillsAvg, testsAvg, turnoverRate, workAvg,
+} from "./calc";
 
 const downloadFile = (data: BlobPart, name: string, type: string) => {
   const blob = new Blob([data], { type });
@@ -14,12 +16,29 @@ const downloadFile = (data: BlobPart, name: string, type: string) => {
   URL.revokeObjectURL(url);
 };
 
+const disciplineRows = (c: Candidate) => [
+  ["Discipline et ponctualité", c.skills.discipline.discipline.toFixed(1)],
+  ["Motivation", c.skills.discipline.motivation.toFixed(1)],
+  ["Communication", c.skills.discipline.communication.toFixed(1)],
+  ["Sens de l'écoute", c.skills.discipline.listening.toFixed(1)],
+  ["Average", disciplineAvg(c.skills.discipline).toFixed(2)],
+];
+const workRows = (c: Candidate) => [
+  ["Sens de l'initiative", c.skills.work.initiative.toFixed(1)],
+  ["Capacité d'analyse", c.skills.work.analysis.toFixed(1)],
+  ["Organisation", c.skills.work.organization.toFixed(1)],
+  ["Aptitudes intellectuelles", c.skills.work.intellectual.toFixed(1)],
+  ["Rythme d'avancement", c.skills.work.pace.toFixed(1)],
+  ["Rapidité d'exécution", c.skills.work.speed.toFixed(1)],
+  ["Average", workAvg(c.skills.work).toFixed(2)],
+];
+
 export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
   const doc = new jsPDF();
   const avg = overallAverage(c);
   doc.setFontSize(20);
   doc.setTextColor(0, 102, 204);
-  doc.text("Career-Hub — Candidate Report", 14, 20);
+  doc.text("CareerHub — Candidate Report", 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(`by CMH Cloud Marketing Hub · Generated ${formatDate(new Date().toISOString())}`, 14, 26);
@@ -44,36 +63,36 @@ export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
     headStyles: { fillColor: [0, 102, 204] },
   });
 
-  const y1 = (doc as any).lastAutoTable.finalY + 8;
+  let y = (doc as any).lastAutoTable.finalY + 8;
   autoTable(doc, {
-    startY: y1,
-    head: [["Skill", "Score /5"]],
-    body: [
-      ["Communication", c.skills.communication.toFixed(1)],
-      ["Technical Skills", c.skills.technical.toFixed(1)],
-      ["Teamwork", c.skills.teamwork.toFixed(1)],
-      ["Problem Solving", c.skills.problemSolving.toFixed(1)],
-      ["Adaptability", c.skills.adaptability.toFixed(1)],
-      ["Average", skillsAvg(c.skills).toFixed(2)],
-    ],
+    startY: y,
+    head: [["Discipline (/5)", "Score"]],
+    body: disciplineRows(c),
+    headStyles: { fillColor: [0, 102, 204] },
+  });
+  y = (doc as any).lastAutoTable.finalY + 8;
+  autoTable(doc, {
+    startY: y,
+    head: [["Work Skills (/5)", "Score"]],
+    body: workRows(c),
+    headStyles: { fillColor: [0, 102, 204] },
+  });
+  y = (doc as any).lastAutoTable.finalY + 8;
+  autoTable(doc, {
+    startY: y,
+    head: [["Module", "Score /20"]],
+    body: c.modules.map((m) => [m.name, (m.score || 0).toFixed(2)]),
     headStyles: { fillColor: [0, 102, 204] },
   });
 
-  const y2 = (doc as any).lastAutoTable.finalY + 8;
-  autoTable(doc, {
-    startY: y2,
-    head: [["Test", "Date", "Score /20"]],
-    body: c.tests.map((t) => [t.name, formatDate(t.date), t.score.toFixed(2)]),
-    headStyles: { fillColor: [0, 102, 204] },
-  });
-
-  const y3 = (doc as any).lastAutoTable.finalY + 8;
+  y = (doc as any).lastAutoTable.finalY + 8;
   doc.setFontSize(12);
   doc.setTextColor(30);
-  doc.text(`Tests Average: ${testsAvg(c.tests).toFixed(2)}/20`, 14, y3);
-  doc.text(`Overall Average: ${avg.toFixed(2)}/20`, 14, y3 + 7);
-  doc.text(`Category: ${categoryFor(avg)}`, 14, y3 + 14);
-  doc.text(`Recommendation: ${avg >= 10 ? "PASS" : "FAIL"}`, 14, y3 + 21);
+  doc.text(`Skills Average: ${skillsAvg(c.skills).toFixed(2)}/5`, 14, y);
+  doc.text(`Modules Average: ${testsAvg(c.modules).toFixed(2)}/20`, 14, y + 7);
+  doc.text(`Overall Average: ${avg.toFixed(2)}/20`, 14, y + 14);
+  doc.text(`Category: ${categoryFor(avg)}`, 14, y + 21);
+  doc.text(`Recommendation: ${avg >= 10 ? "PASS" : "FAIL"}`, 14, y + 28);
 
   doc.save(`${c.firstName}_${c.lastName}_report.pdf`);
 };
@@ -81,7 +100,7 @@ export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
 export const exportCandidateExcel = (c: Candidate, promo?: Promotion) => {
   const wb = XLSX.utils.book_new();
   const info = XLSX.utils.aoa_to_sheet([
-    ["Career-Hub Candidate Report"],
+    ["CareerHub Candidate Report"],
     [],
     ["Name", `${c.firstName} ${c.lastName}`],
     ["Email", c.email],
@@ -89,40 +108,40 @@ export const exportCandidateExcel = (c: Candidate, promo?: Promotion) => {
     ["Promotion", promo ? `${promo.id} - ${promo.name}` : ""],
     ["Education", `${c.educationLevel} - ${c.diplomaName}`],
     ["Status", c.status],
+    ["Skills Average", `${skillsAvg(c.skills).toFixed(2)}/5`],
+    ["Modules Average", `${testsAvg(c.modules).toFixed(2)}/20`],
     ["Overall Average", `${overallAverage(c).toFixed(2)}/20`],
     ["Category", categoryFor(overallAverage(c))],
   ]);
   XLSX.utils.book_append_sheet(wb, info, "Info");
-  const skills = XLSX.utils.json_to_sheet(
-    Object.entries(c.skills).map(([k, v]) => ({ Skill: k, Score: v })),
-  );
-  XLSX.utils.book_append_sheet(wb, skills, "Skills");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(c.tests), "Tests");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Skill", "Score /5"], ...disciplineRows(c)]), "Discipline");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Skill", "Score /5"], ...workRows(c)]), "Work Skills");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(c.modules), "Modules");
   XLSX.writeFile(wb, `${c.firstName}_${c.lastName}_report.xlsx`);
 };
 
 export const exportCandidateHTML = (c: Candidate, promo?: Promotion) => {
   const avg = overallAverage(c);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${c.firstName} ${c.lastName} — Career-Hub Report</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${c.firstName} ${c.lastName} — CareerHub Report</title>
 <style>body{font-family:Inter,system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;color:#1E293B}
 h1{color:#0066CC}h2{border-bottom:2px solid #0066CC;padding-bottom:6px;margin-top:30px}
 table{width:100%;border-collapse:collapse;margin:10px 0}th,td{padding:8px 12px;border:1px solid #E2E8F0;text-align:left}
 th{background:#F8FAFC}.badge{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:600;color:white}
 .excellent{background:#10B981}.good{background:#3B82F6}.passable{background:#F59E0B}.critical{background:#EF4444}</style></head><body>
-<h1>Career-Hub — Candidate Report</h1><p style="color:#64748B">by CMH Cloud Marketing Hub</p>
+<h1>CareerHub — Candidate Report</h1><p style="color:#64748B">by CMH Cloud Marketing Hub</p>
 <h2>${c.firstName} ${c.lastName}</h2>
 <p><strong>Overall Average:</strong> ${avg.toFixed(2)}/20 — <span class="badge ${categoryFor(avg).toLowerCase()}">${categoryFor(avg)}</span></p>
 <table><tr><th>Email</th><td>${c.email}</td></tr><tr><th>Phone</th><td>${c.phone}</td></tr>
 <tr><th>Education</th><td>${c.educationLevel} — ${c.diplomaName}</td></tr>
 <tr><th>Promotion</th><td>${promo ? promo.id + " · " + promo.name : "—"}</td></tr>
 <tr><th>Status</th><td>${c.status}</td></tr></table>
-<h2>Skills (/5)</h2><table><tr><th>Skill</th><th>Score</th></tr>
-${Object.entries(c.skills).map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}
-<tr><td><strong>Average</strong></td><td><strong>${skillsAvg(c.skills).toFixed(2)}</strong></td></tr></table>
-<h2>Tests (/20)</h2><table><tr><th>Test</th><th>Date</th><th>Score</th></tr>
-${c.tests.map((t) => `<tr><td>${t.name}</td><td>${formatDate(t.date)}</td><td>${t.score}</td></tr>`).join("")}
-<tr><td colspan="2"><strong>Average</strong></td><td><strong>${testsAvg(c.tests).toFixed(2)}</strong></td></tr></table>
+<h2>Discipline (/5)</h2><table><tr><th>Skill</th><th>Score</th></tr>
+${disciplineRows(c).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
+<h2>Work Skills (/5)</h2><table><tr><th>Skill</th><th>Score</th></tr>
+${workRows(c).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
+<h2>Modules (/20)</h2><table><tr><th>Module</th><th>Score</th></tr>
+${c.modules.map((m) => `<tr><td>${m.name}</td><td>${(m.score || 0).toFixed(2)}</td></tr>`).join("")}
+<tr><td><strong>Average</strong></td><td><strong>${testsAvg(c.modules).toFixed(2)}</strong></td></tr></table>
 <p>Recommendation: <strong>${avg >= 10 ? "PASS" : "FAIL"}</strong></p></body></html>`;
   downloadFile(html, `${c.firstName}_${c.lastName}_report.html`, "text/html");
 };
@@ -131,7 +150,7 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
   const doc = new jsPDF();
   doc.setFontSize(20);
   doc.setTextColor(0, 102, 204);
-  doc.text("Career-Hub — Promotion Report", 14, 20);
+  doc.text("CareerHub — Promotion Report", 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(`Generated ${formatDate(new Date().toISOString())}`, 14, 26);
@@ -175,7 +194,7 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
 export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
   const wb = XLSX.utils.book_new();
   const info = XLSX.utils.aoa_to_sheet([
-    ["Career-Hub Promotion Report"],
+    ["CareerHub Promotion Report"],
     [],
     ["ID", p.id],
     ["Name", p.name],
@@ -193,8 +212,8 @@ export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
       Email: c.email,
       Phone: c.phone,
       Education: c.educationLevel,
-      "Skills Avg": skillsAvg(c.skills).toFixed(2),
-      "Tests Avg": testsAvg(c.tests).toFixed(2),
+      "Skills Avg /5": skillsAvg(c.skills).toFixed(2),
+      "Modules Avg /20": testsAvg(c.modules).toFixed(2),
       Overall: a.toFixed(2),
       Category: categoryFor(a),
       Status: c.status,
@@ -230,7 +249,7 @@ h1{color:#0066CC}table{width:100%;border-collapse:collapse;margin:10px 0}
 th,td{padding:8px 12px;border:1px solid #E2E8F0;text-align:left}th{background:#F8FAFC}
 .kpi{display:inline-block;padding:14px 20px;background:#F8FAFC;border-radius:8px;margin:6px;border:1px solid #E2E8F0}
 .kpi b{display:block;font-size:24px;color:#0066CC}</style></head><body>
-<h1>Career-Hub — Promotion Report</h1><h2>${p.id} · ${p.name}</h2>
+<h1>CareerHub — Promotion Report</h1><h2>${p.id} · ${p.name}</h2>
 <p>${formatDate(p.startDate)} → ${formatDate(p.endDate)}</p>
 <div><div class="kpi"><b>${cands.length}</b>Candidates</div>
 <div class="kpi"><b>${passRate(cands)}%</b>Pass Rate</div>

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as GraduatesRouteImport } from './routes/graduates'
 import { Route as AiAdvisorRouteImport } from './routes/ai-advisor'
 import { Route as IndexRouteImport } from './routes/index'
@@ -18,7 +19,6 @@ import { Route as PromotionsIndexRouteImport } from './routes/promotions.index'
 import { Route as CandidatesIndexRouteImport } from './routes/candidates.index'
 import { Route as PromotionsIdRouteImport } from './routes/promotions.$id'
 import { Route as CandidatesIdRouteImport } from './routes/candidates.$id'
-import { Route as PromotionsIdCalendarRouteImport } from './routes/promotions.$id.calendar'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -28,6 +28,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GraduatesRoute = GraduatesRouteImport.update({
@@ -65,48 +70,43 @@ const CandidatesIdRoute = CandidatesIdRouteImport.update({
   path: '/candidates/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PromotionsIdCalendarRoute = PromotionsIdCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
-  getParentRoute: () => PromotionsIdRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ai-advisor': typeof AiAdvisorRoute
   '/graduates': typeof GraduatesRoute
+  '/login': typeof LoginRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
-  '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/promotions/$id': typeof PromotionsIdRoute
   '/candidates/': typeof CandidatesIndexRoute
   '/promotions/': typeof PromotionsIndexRoute
-  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ai-advisor': typeof AiAdvisorRoute
   '/graduates': typeof GraduatesRoute
+  '/login': typeof LoginRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
-  '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/promotions/$id': typeof PromotionsIdRoute
   '/candidates': typeof CandidatesIndexRoute
   '/promotions': typeof PromotionsIndexRoute
-  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/ai-advisor': typeof AiAdvisorRoute
   '/graduates': typeof GraduatesRoute
+  '/login': typeof LoginRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
-  '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/promotions/$id': typeof PromotionsIdRoute
   '/candidates/': typeof CandidatesIndexRoute
   '/promotions/': typeof PromotionsIndexRoute
-  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -114,47 +114,48 @@ export interface FileRouteTypes {
     | '/'
     | '/ai-advisor'
     | '/graduates'
+    | '/login'
     | '/reports'
     | '/settings'
     | '/candidates/$id'
     | '/promotions/$id'
     | '/candidates/'
     | '/promotions/'
-    | '/promotions/$id/calendar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/ai-advisor'
     | '/graduates'
+    | '/login'
     | '/reports'
     | '/settings'
     | '/candidates/$id'
     | '/promotions/$id'
     | '/candidates'
     | '/promotions'
-    | '/promotions/$id/calendar'
   id:
     | '__root__'
     | '/'
     | '/ai-advisor'
     | '/graduates'
+    | '/login'
     | '/reports'
     | '/settings'
     | '/candidates/$id'
     | '/promotions/$id'
     | '/candidates/'
     | '/promotions/'
-    | '/promotions/$id/calendar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AiAdvisorRoute: typeof AiAdvisorRoute
   GraduatesRoute: typeof GraduatesRoute
+  LoginRoute: typeof LoginRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   CandidatesIdRoute: typeof CandidatesIdRoute
-  PromotionsIdRoute: typeof PromotionsIdRouteWithChildren
+  PromotionsIdRoute: typeof PromotionsIdRoute
   CandidatesIndexRoute: typeof CandidatesIndexRoute
   PromotionsIndexRoute: typeof PromotionsIndexRoute
 }
@@ -173,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/graduates': {
@@ -224,36 +232,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CandidatesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/promotions/$id/calendar': {
-      id: '/promotions/$id/calendar'
-      path: '/calendar'
-      fullPath: '/promotions/$id/calendar'
-      preLoaderRoute: typeof PromotionsIdCalendarRouteImport
-      parentRoute: typeof PromotionsIdRoute
-    }
   }
 }
-
-interface PromotionsIdRouteChildren {
-  PromotionsIdCalendarRoute: typeof PromotionsIdCalendarRoute
-}
-
-const PromotionsIdRouteChildren: PromotionsIdRouteChildren = {
-  PromotionsIdCalendarRoute: PromotionsIdCalendarRoute,
-}
-
-const PromotionsIdRouteWithChildren = PromotionsIdRoute._addFileChildren(
-  PromotionsIdRouteChildren,
-)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AiAdvisorRoute: AiAdvisorRoute,
   GraduatesRoute: GraduatesRoute,
+  LoginRoute: LoginRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   CandidatesIdRoute: CandidatesIdRoute,
-  PromotionsIdRoute: PromotionsIdRouteWithChildren,
+  PromotionsIdRoute: PromotionsIdRoute,
   CandidatesIndexRoute: CandidatesIndexRoute,
   PromotionsIndexRoute: PromotionsIndexRoute,
 }
