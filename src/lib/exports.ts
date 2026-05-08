@@ -19,7 +19,7 @@ export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
   const avg = overallAverage(c);
   doc.setFontSize(20);
   doc.setTextColor(0, 102, 204);
-  doc.text("NexusHR — Candidate Report", 14, 20);
+  doc.text("CarrerHub — Candidate Report", 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(`by CMH Cloud Marketing Hub · Generated ${formatDate(new Date().toISOString())}`, 14, 26);
@@ -81,7 +81,7 @@ export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
 export const exportCandidateExcel = (c: Candidate, promo?: Promotion) => {
   const wb = XLSX.utils.book_new();
   const info = XLSX.utils.aoa_to_sheet([
-    ["NexusHR Candidate Report"],
+    ["CarrerHub Candidate Report"],
     [],
     ["Name", `${c.firstName} ${c.lastName}`],
     ["Email", c.email],
@@ -104,13 +104,13 @@ export const exportCandidateExcel = (c: Candidate, promo?: Promotion) => {
 
 export const exportCandidateHTML = (c: Candidate, promo?: Promotion) => {
   const avg = overallAverage(c);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${c.firstName} ${c.lastName} — NexusHR Report</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${c.firstName} ${c.lastName} — CarrerHub Report</title>
 <style>body{font-family:Inter,system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;color:#1E293B}
 h1{color:#0066CC}h2{border-bottom:2px solid #0066CC;padding-bottom:6px;margin-top:30px}
 table{width:100%;border-collapse:collapse;margin:10px 0}th,td{padding:8px 12px;border:1px solid #E2E8F0;text-align:left}
 th{background:#F8FAFC}.badge{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:600;color:white}
 .excellent{background:#10B981}.good{background:#3B82F6}.passable{background:#F59E0B}.critical{background:#EF4444}</style></head><body>
-<h1>NexusHR — Candidate Report</h1><p style="color:#64748B">by CMH Cloud Marketing Hub</p>
+<h1>CarrerHub — Candidate Report</h1><p style="color:#64748B">by CMH Cloud Marketing Hub</p>
 <h2>${c.firstName} ${c.lastName}</h2>
 <p><strong>Overall Average:</strong> ${avg.toFixed(2)}/20 — <span class="badge ${categoryFor(avg).toLowerCase()}">${categoryFor(avg)}</span></p>
 <table><tr><th>Email</th><td>${c.email}</td></tr><tr><th>Phone</th><td>${c.phone}</td></tr>
@@ -131,7 +131,7 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
   const doc = new jsPDF();
   doc.setFontSize(20);
   doc.setTextColor(0, 102, 204);
-  doc.text("NexusHR — Promotion Report", 14, 20);
+  doc.text("CarrerHub — Promotion Report", 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(`Generated ${formatDate(new Date().toISOString())}`, 14, 26);
@@ -175,7 +175,7 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
 export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
   const wb = XLSX.utils.book_new();
   const info = XLSX.utils.aoa_to_sheet([
-    ["NexusHR Promotion Report"],
+    ["CarrerHub Promotion Report"],
     [],
     ["ID", p.id],
     ["Name", p.name],
@@ -230,7 +230,7 @@ h1{color:#0066CC}table{width:100%;border-collapse:collapse;margin:10px 0}
 th,td{padding:8px 12px;border:1px solid #E2E8F0;text-align:left}th{background:#F8FAFC}
 .kpi{display:inline-block;padding:14px 20px;background:#F8FAFC;border-radius:8px;margin:6px;border:1px solid #E2E8F0}
 .kpi b{display:block;font-size:24px;color:#0066CC}</style></head><body>
-<h1>NexusHR — Promotion Report</h1><h2>${p.id} · ${p.name}</h2>
+<h1>CarrerHub — Promotion Report</h1><h2>${p.id} · ${p.name}</h2>
 <p>${formatDate(p.startDate)} → ${formatDate(p.endDate)}</p>
 <div><div class="kpi"><b>${cands.length}</b>Candidates</div>
 <div class="kpi"><b>${passRate(cands)}%</b>Pass Rate</div>

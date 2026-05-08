@@ -4,7 +4,7 @@ import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/ai-advisor")({
-  head: () => ({ meta: [{ title: "AI Advisor — NexusHR" }] }),
+  head: () => ({ meta: [{ title: "AI Advisor — CarrerHub" }] }),
   component: AIAdvisor,
 });
 

@@ -9,7 +9,7 @@ import { Award, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/graduates")({
-  head: () => ({ meta: [{ title: "Graduates — NexusHR" }] }),
+  head: () => ({ meta: [{ title: "Graduates — CarrerHub" }] }),
   component: Graduates,
 });
 

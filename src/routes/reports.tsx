@@ -13,7 +13,7 @@ import {
 } from "@/lib/exports";
 
 export const Route = createFileRoute("/reports")({
-  head: () => ({ meta: [{ title: "Reports & Exports — NexusHR" }] }),
+  head: () => ({ meta: [{ title: "Reports & Exports — CarrerHub" }] }),
   component: Reports,
 });
 
