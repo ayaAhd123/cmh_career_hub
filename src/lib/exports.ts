@@ -2,7 +2,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import type { Candidate, Promotion } from "./types";
-import { categoryFor, formatDate, overallAverage, passRate, skillsAvg, testsAvg, turnoverRate } from "./calc";
+import {
+  categoryFor, disciplineAvg, formatDate, overallAverage, passRate, skillsAvg, testsAvg, turnoverRate, workAvg,
+} from "./calc";
 
 const downloadFile = (data: BlobPart, name: string, type: string) => {
   const blob = new Blob([data], { type });
@@ -13,6 +15,23 @@ const downloadFile = (data: BlobPart, name: string, type: string) => {
   a.click();
   URL.revokeObjectURL(url);
 };
+
+const disciplineRows = (c: Candidate) => [
+  ["Discipline et ponctualité", c.skills.discipline.discipline.toFixed(1)],
+  ["Motivation", c.skills.discipline.motivation.toFixed(1)],
+  ["Communication", c.skills.discipline.communication.toFixed(1)],
+  ["Sens de l'écoute", c.skills.discipline.listening.toFixed(1)],
+  ["Average", disciplineAvg(c.skills.discipline).toFixed(2)],
+];
+const workRows = (c: Candidate) => [
+  ["Sens de l'initiative", c.skills.work.initiative.toFixed(1)],
+  ["Capacité d'analyse", c.skills.work.analysis.toFixed(1)],
+  ["Organisation", c.skills.work.organization.toFixed(1)],
+  ["Aptitudes intellectuelles", c.skills.work.intellectual.toFixed(1)],
+  ["Rythme d'avancement", c.skills.work.pace.toFixed(1)],
+  ["Rapidité d'exécution", c.skills.work.speed.toFixed(1)],
+  ["Average", workAvg(c.skills.work).toFixed(2)],
+];
 
 export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
   const doc = new jsPDF();
@@ -44,36 +63,36 @@ export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
     headStyles: { fillColor: [0, 102, 204] },
   });
 
-  const y1 = (doc as any).lastAutoTable.finalY + 8;
+  let y = (doc as any).lastAutoTable.finalY + 8;
   autoTable(doc, {
-    startY: y1,
-    head: [["Skill", "Score /5"]],
-    body: [
-      ["Communication", c.skills.communication.toFixed(1)],
-      ["Technical Skills", c.skills.technical.toFixed(1)],
-      ["Teamwork", c.skills.teamwork.toFixed(1)],
-      ["Problem Solving", c.skills.problemSolving.toFixed(1)],
-      ["Adaptability", c.skills.adaptability.toFixed(1)],
-      ["Average", skillsAvg(c.skills).toFixed(2)],
-    ],
+    startY: y,
+    head: [["Discipline (/5)", "Score"]],
+    body: disciplineRows(c),
+    headStyles: { fillColor: [0, 102, 204] },
+  });
+  y = (doc as any).lastAutoTable.finalY + 8;
+  autoTable(doc, {
+    startY: y,
+    head: [["Work Skills (/5)", "Score"]],
+    body: workRows(c),
+    headStyles: { fillColor: [0, 102, 204] },
+  });
+  y = (doc as any).lastAutoTable.finalY + 8;
+  autoTable(doc, {
+    startY: y,
+    head: [["Module", "Score /20"]],
+    body: c.modules.map((m) => [m.name, (m.score || 0).toFixed(2)]),
     headStyles: { fillColor: [0, 102, 204] },
   });
 
-  const y2 = (doc as any).lastAutoTable.finalY + 8;
-  autoTable(doc, {
-    startY: y2,
-    head: [["Test", "Date", "Score /20"]],
-    body: c.tests.map((t) => [t.name, formatDate(t.date), t.score.toFixed(2)]),
-    headStyles: { fillColor: [0, 102, 204] },
-  });
-
-  const y3 = (doc as any).lastAutoTable.finalY + 8;
+  y = (doc as any).lastAutoTable.finalY + 8;
   doc.setFontSize(12);
   doc.setTextColor(30);
-  doc.text(`Tests Average: ${testsAvg(c.tests).toFixed(2)}/20`, 14, y3);
-  doc.text(`Overall Average: ${avg.toFixed(2)}/20`, 14, y3 + 7);
-  doc.text(`Category: ${categoryFor(avg)}`, 14, y3 + 14);
-  doc.text(`Recommendation: ${avg >= 10 ? "PASS" : "FAIL"}`, 14, y3 + 21);
+  doc.text(`Skills Average: ${skillsAvg(c.skills).toFixed(2)}/5`, 14, y);
+  doc.text(`Modules Average: ${testsAvg(c.modules).toFixed(2)}/20`, 14, y + 7);
+  doc.text(`Overall Average: ${avg.toFixed(2)}/20`, 14, y + 14);
+  doc.text(`Category: ${categoryFor(avg)}`, 14, y + 21);
+  doc.text(`Recommendation: ${avg >= 10 ? "PASS" : "FAIL"}`, 14, y + 28);
 
   doc.save(`${c.firstName}_${c.lastName}_report.pdf`);
 };
@@ -89,15 +108,14 @@ export const exportCandidateExcel = (c: Candidate, promo?: Promotion) => {
     ["Promotion", promo ? `${promo.id} - ${promo.name}` : ""],
     ["Education", `${c.educationLevel} - ${c.diplomaName}`],
     ["Status", c.status],
+    ["Skills Average", `${skillsAvg(c.skills).toFixed(2)}/5`],
+    ["Modules Average", `${testsAvg(c.modules).toFixed(2)}/20`],
     ["Overall Average", `${overallAverage(c).toFixed(2)}/20`],
     ["Category", categoryFor(overallAverage(c))],
   ]);
   XLSX.utils.book_append_sheet(wb, info, "Info");
-  const skills = XLSX.utils.json_to_sheet(
-    Object.entries(c.skills).map(([k, v]) => ({ Skill: k, Score: v })),
-  );
-  XLSX.utils.book_append_sheet(wb, skills, "Skills");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(c.tests), "Tests");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Skill", "Score /5"], ...disciplineRows(c)]), "Discipline");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Skill", "Score /5"], ...workRows(c)]), "Work Skills");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(c.modules), "Modules");
   XLSX.writeFile(wb, `${c.firstName}_${c.lastName}_report.xlsx`);
 };
@@ -117,12 +135,13 @@ th{background:#F8FAFC}.badge{display:inline-block;padding:4px 12px;border-radius
 <tr><th>Education</th><td>${c.educationLevel} — ${c.diplomaName}</td></tr>
 <tr><th>Promotion</th><td>${promo ? promo.id + " · " + promo.name : "—"}</td></tr>
 <tr><th>Status</th><td>${c.status}</td></tr></table>
-<h2>Skills (/5)</h2><table><tr><th>Skill</th><th>Score</th></tr>
-${Object.entries(c.skills).map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}
-<tr><td><strong>Average</strong></td><td><strong>${skillsAvg(c.skills).toFixed(2)}</strong></td></tr></table>
-<h2>Tests (/20)</h2><table><tr><th>Test</th><th>Date</th><th>Score</th></tr>
-${c.tests.map((t) => `<tr><td>${t.name}</td><td>${formatDate(t.date)}</td><td>${t.score}</td></tr>`).join("")}
-<tr><td colspan="2"><strong>Average</strong></td><td><strong>${testsAvg(c.tests).toFixed(2)}</strong></td></tr></table>
+<h2>Discipline (/5)</h2><table><tr><th>Skill</th><th>Score</th></tr>
+${disciplineRows(c).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
+<h2>Work Skills (/5)</h2><table><tr><th>Skill</th><th>Score</th></tr>
+${workRows(c).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
+<h2>Modules (/20)</h2><table><tr><th>Module</th><th>Score</th></tr>
+${c.modules.map((m) => `<tr><td>${m.name}</td><td>${(m.score || 0).toFixed(2)}</td></tr>`).join("")}
+<tr><td><strong>Average</strong></td><td><strong>${testsAvg(c.modules).toFixed(2)}</strong></td></tr></table>
 <p>Recommendation: <strong>${avg >= 10 ? "PASS" : "FAIL"}</strong></p></body></html>`;
   downloadFile(html, `${c.firstName}_${c.lastName}_report.html`, "text/html");
 };
@@ -193,8 +212,8 @@ export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
       Email: c.email,
       Phone: c.phone,
       Education: c.educationLevel,
-      "Skills Avg": skillsAvg(c.skills).toFixed(2),
-      "Tests Avg": testsAvg(c.tests).toFixed(2),
+      "Skills Avg /5": skillsAvg(c.skills).toFixed(2),
+      "Modules Avg /20": testsAvg(c.modules).toFixed(2),
       Overall: a.toFixed(2),
       Category: categoryFor(a),
       Status: c.status,

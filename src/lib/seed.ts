@@ -1,6 +1,6 @@
 import { addDays, format, subDays } from "date-fns";
 import { useStore } from "./store";
-import type { EducationLevel } from "./types";
+import type { EducationLevel, Skills } from "./types";
 
 const firstNames = ["Yasmine", "Karim", "Sofia", "Mehdi", "Lina", "Omar", "Aya", "Youssef", "Salma", "Hamza", "Imane", "Reda", "Nora", "Ayoub", "Hajar", "Anas", "Sara", "Bilal", "Fatima", "Zineb"];
 const lastNames = ["El Amrani", "Benali", "Tazi", "Bennani", "Cherkaoui", "Idrissi", "Alaoui", "El Fassi", "Berrada", "Lahlou", "Saadi", "El Mansouri", "Chraibi", "Boukhriss", "El Khatib"];
@@ -10,6 +10,7 @@ const diplomas = ["Marketing Digital", "Génie Logiciel", "Commerce", "Managemen
 const rand = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 const randF = (min: number, max: number, dec = 1) =>
   Math.round((Math.random() * (max - min) + min) * 10 ** dec) / 10 ** dec;
+const round5 = (n: number) => Math.min(5, Math.max(0, Math.round(n * 2) / 2));
 
 export const seedSampleData = () => {
   const s = useStore.getState();
@@ -17,9 +18,9 @@ export const seedSampleData = () => {
 
   const today = new Date();
   const promos = [
-    { name: "Digital Marketing Bootcamp", start: format(subDays(today, 12), "yyyy-MM-dd") },
-    { name: "Sales Training Q4", start: format(subDays(today, 90), "yyyy-MM-dd") },
-    { name: "Customer Service Excellence", start: format(addDays(today, 5), "yyyy-MM-dd") },
+    { name: "Email Marketing Bootcamp", start: format(subDays(today, 12), "yyyy-MM-dd") },
+    { name: "Email Marketing Q4", start: format(subDays(today, 90), "yyyy-MM-dd") },
+    { name: "Email Marketing — New Cohort", start: format(addDays(today, 5), "yyyy-MM-dd") },
   ];
 
   const created = promos.map((p) => s.addPromotion({ name: p.name, startDate: p.start }));
@@ -30,7 +31,7 @@ export const seedSampleData = () => {
     for (let i = 0; i < count; i++) {
       const fn = rand(firstNames);
       const ln = rand(lastNames);
-      const email = `${fn.toLowerCase().replace(/\s/g, "")}.${ln.toLowerCase().replace(/\s/g, "")}${i}@cmh.ma`;
+      const email = `${fn.toLowerCase().replace(/\s/g, "")}.${ln.toLowerCase().replace(/\s/g, "")}${i}${idx}@cmh.ma`;
       const res = useStore.getState().addCandidate({
         promotionId: promo.id,
         firstName: fn,
@@ -46,47 +47,39 @@ export const seedSampleData = () => {
       const candidates = useStore.getState().candidates;
       const c = candidates[candidates.length - 1];
 
-      // Distribute scores per category target
       const r = Math.random();
       const targetAvg = r < 0.2 ? randF(16, 19) : r < 0.5 ? randF(14, 16) : r < 0.85 ? randF(10, 14) : randF(5, 10);
+      const skillVal = targetAvg / 4; // map /20 → /5
 
-      const skillVal = Math.min(5, Math.max(0, targetAvg / 4 + randF(-0.3, 0.3)));
-      useStore.getState().setSkills(c.id, {
-        communication: Math.round(skillVal * 2) / 2,
-        technical: Math.round((skillVal + randF(-0.5, 0.5)) * 2) / 2,
-        teamwork: Math.round((skillVal + randF(-0.5, 0.5)) * 2) / 2,
-        problemSolving: Math.round((skillVal + randF(-0.5, 0.5)) * 2) / 2,
-        adaptability: Math.round((skillVal + randF(-0.5, 0.5)) * 2) / 2,
-      });
+      const skills: Skills = {
+        discipline: {
+          discipline: round5(skillVal + randF(-0.5, 0.5)),
+          motivation: round5(skillVal + randF(-0.5, 0.5)),
+          communication: round5(skillVal + randF(-0.5, 0.5)),
+          listening: round5(skillVal + randF(-0.5, 0.5)),
+        },
+        work: {
+          initiative: round5(skillVal + randF(-0.5, 0.5)),
+          analysis: round5(skillVal + randF(-0.5, 0.5)),
+          organization: round5(skillVal + randF(-0.5, 0.5)),
+          intellectual: round5(skillVal + randF(-0.5, 0.5)),
+          pace: round5(skillVal + randF(-0.5, 0.5)),
+          speed: round5(skillVal + randF(-0.5, 0.5)),
+        },
+      };
+      useStore.getState().setSkills(c.id, skills);
 
-      const numTests = idx === 1 ? 5 : Math.floor(Math.random() * 4) + 1;
-      const testNames = ["Theory Test", "Practice Test 1", "Practice Test 2", "Practice Test 3", "Final Test"];
-      for (let t = 0; t < numTests; t++) {
-        useStore.getState().addTest(c.id, {
-          name: testNames[t],
-          score: Math.min(20, Math.max(0, Math.round((targetAvg + randF(-2, 2)) * 100) / 100)),
-          date: format(subDays(today, Math.floor(Math.random() * 30)), "yyyy-MM-dd"),
-        });
+      // Modules: fill scores for past promos, partial for current, none for future
+      const fillCount = idx === 1 ? 5 : idx === 0 ? 3 : 0;
+      for (let m = 1; m <= fillCount; m++) {
+        const score = Math.min(20, Math.max(0, Math.round((targetAvg + randF(-2, 2)) * 100) / 100));
+        useStore.getState().updateModuleScore(c.id, m, score);
       }
 
-      // Mark some modules done for completed/active promos
-      const elapsedDays = idx === 1 ? 25 : idx === 0 ? 8 : 0;
-      for (let d = 1; d <= elapsedDays; d++) {
-        useStore.getState().updateModule(c.id, d, {
-          status: "Completed",
-          score: Math.min(20, Math.max(0, Math.round((targetAvg + randF(-2, 2)) * 100) / 100)),
-          participation: Math.round(skillVal),
-          discipline: Math.round(skillVal),
-        });
-      }
-
-      // A few terminations / dismissals
       if (i === 2 && idx === 1) useStore.getState().changeStatus(c.id, "Terminated");
-      if (i === 5 && idx === 1) useStore.getState().changeStatus(c.id, "Dismissed");
-      if (i === 1 && idx === 0) useStore.getState().changeStatus(c.id, "Dismissed");
-      if (idx === 1 && targetAvg >= 10 && i !== 2 && i !== 5) {
-        useStore.getState().changeStatus(c.id, "Graduated");
-      }
+      else if (i === 5 && idx === 1) useStore.getState().changeStatus(c.id, "Dismissed");
+      else if (i === 1 && idx === 0) useStore.getState().changeStatus(c.id, "Dismissed");
+      else if (idx === 1 && targetAvg >= 10) useStore.getState().changeStatus(c.id, "Graduated");
     }
   });
 

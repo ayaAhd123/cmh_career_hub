@@ -1,13 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { addDays, format, parseISO } from "date-fns";
 import type {
   Candidate,
-  ModuleEntry,
+  ModuleScore,
   Promotion,
   Skills,
-  TestScore,
 } from "./types";
+import { buildModules, emptySkills } from "./types";
 import { calcEndDate } from "./calc";
 
 interface State {
@@ -22,15 +21,12 @@ interface State {
   addCandidate: (
     data: Omit<
       Candidate,
-      "id" | "skills" | "tests" | "modules" | "status" | "archived" | "createdAt" | "history"
+      "id" | "skills" | "modules" | "status" | "archived" | "createdAt" | "history"
     >,
   ) => { ok: boolean; error?: string };
   updateCandidate: (id: string, patch: Partial<Candidate>) => void;
   setSkills: (id: string, skills: Skills) => void;
-  addTest: (id: string, test: Omit<TestScore, "id">) => void;
-  updateTest: (id: string, testId: string, patch: Partial<TestScore>) => void;
-  removeTest: (id: string, testId: string) => void;
-  updateModule: (id: string, day: number, patch: Partial<ModuleEntry>) => void;
+  updateModuleScore: (id: string, moduleId: number, score: number) => void;
   changeStatus: (id: string, status: Candidate["status"]) => void;
   archiveCandidate: (id: string) => void;
   restoreCandidate: (id: string) => void;
@@ -46,41 +42,13 @@ const generatePromotionId = (existing: Promotion[]): string => {
   return `PROMO-${year}-${next}`;
 };
 
-const buildModules = (startDate: string): ModuleEntry[] => {
-  const titles = [
-    "Introduction & Onboarding", "Company Culture & Values", "Core Concepts",
-    "Foundational Theory", "Theory Recap & Test",
-    "Practice Lab 1", "Practice Lab 2", "Practice Lab 3", "Practice Lab 4", "Practice Test 1",
-    "Advanced Practice 1", "Advanced Practice 2", "Group Project Kickoff", "Group Project Work", "Mid-Module Review",
-    "Real-World Scenarios", "Client Simulation", "Practice Test 2", "Soft Skills Workshop", "Peer Review",
-    "Capstone Day 1", "Capstone Day 2", "Capstone Presentation", "Final Test", "Graduation & Feedback",
-  ];
-  const modules: ModuleEntry[] = [];
-  let day = 0;
-  for (let i = 0; i < 35 && day < 25; i++) {
-    const d = addDays(parseISO(startDate), i);
-    const dow = d.getDay();
-    if (dow === 0 || dow === 6) continue;
-    modules.push({
-      day: day + 1,
-      date: format(d, "yyyy-MM-dd"),
-      title: `Day ${day + 1}: ${titles[day]}`,
-      type: day < 5 ? "Theory" : "Practice",
-      status: "Not Started",
-    });
-    day++;
-  }
-  return modules;
-};
-
 const newCandidate = (
   data: Parameters<State["addCandidate"]>[0],
 ): Candidate => ({
   ...data,
   id: crypto.randomUUID(),
-  skills: { communication: 0, technical: 0, teamwork: 0, problemSolving: 0, adaptability: 0 },
-  tests: [],
-  modules: [],
+  skills: emptySkills(),
+  modules: buildModules(),
   status: "Active",
   archived: false,
   createdAt: new Date().toISOString(),
@@ -130,9 +98,7 @@ export const useStore = create<State>()(
           (c) => c.email.toLowerCase() === data.email.toLowerCase() && !c.archived,
         );
         if (exists) return { ok: false, error: "Email already exists" };
-        const promo = get().promotions.find((p) => p.id === data.promotionId);
         const c = newCandidate(data);
-        if (promo) c.modules = buildModules(promo.startDate);
         set((s) => ({ candidates: [...s.candidates, c] }));
         return { ok: true };
       },
@@ -146,60 +112,20 @@ export const useStore = create<State>()(
         set((s) => ({
           candidates: s.candidates.map((c) =>
             c.id === id
-              ? {
-                  ...c,
-                  skills,
-                  history: [
-                    ...c.history,
-                    { date: new Date().toISOString(), event: "Skills updated" },
-                  ],
-                }
+              ? { ...c, skills, history: [...c.history, { date: new Date().toISOString(), event: "Skills updated" }] }
               : c,
           ),
         })),
 
-      addTest: (id, test) =>
+      updateModuleScore: (id, moduleId, score) =>
         set((s) => ({
           candidates: s.candidates.map((c) =>
             c.id === id
               ? {
                   ...c,
-                  tests: [...c.tests, { ...test, id: crypto.randomUUID() }],
-                  history: [
-                    ...c.history,
-                    {
-                      date: new Date().toISOString(),
-                      event: `Test "${test.name}" scored ${test.score}/20`,
-                    },
-                  ],
-                }
-              : c,
-          ),
-        })),
-
-      updateTest: (id, testId, patch) =>
-        set((s) => ({
-          candidates: s.candidates.map((c) =>
-            c.id === id
-              ? { ...c, tests: c.tests.map((t) => (t.id === testId ? { ...t, ...patch } : t)) }
-              : c,
-          ),
-        })),
-
-      removeTest: (id, testId) =>
-        set((s) => ({
-          candidates: s.candidates.map((c) =>
-            c.id === id ? { ...c, tests: c.tests.filter((t) => t.id !== testId) } : c,
-          ),
-        })),
-
-      updateModule: (id, day, patch) =>
-        set((s) => ({
-          candidates: s.candidates.map((c) =>
-            c.id === id
-              ? {
-                  ...c,
-                  modules: c.modules.map((m) => (m.day === day ? { ...m, ...patch } : m)),
+                  modules: c.modules.map((m: ModuleScore) =>
+                    m.id === moduleId ? { ...m, score } : m,
+                  ),
                 }
               : c,
           ),
@@ -252,6 +178,6 @@ export const useStore = create<State>()(
 
       resetSeed: () => set({ promotions: [], candidates: [], seeded: false }),
     }),
-    { name: "nexushr-store" },
+    { name: "careerhub-store" },
   ),
 );
