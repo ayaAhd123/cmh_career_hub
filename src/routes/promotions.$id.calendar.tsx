@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,11 @@ export const Route = createFileRoute("/promotions/$id/calendar")({
 function CalendarPage() {
   const { id } = Route.useParams();
   const promo = useStore((s) => s.promotions.find((p) => p.id === id));
-  const candidates = useStore((s) => s.candidates.filter((c) => c.promotionId === id && !c.archived));
+  const allCandidates = useStore((s) => s.candidates);
+  const candidates = useMemo(
+    () => allCandidates.filter((c) => c.promotionId === id && !c.archived),
+    [allCandidates, id],
+  );
   const updateModule = useStore((s) => s.updateModule);
 
   if (!promo) return <p>Not found</p>;
