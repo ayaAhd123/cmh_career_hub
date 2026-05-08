@@ -10,7 +10,7 @@ import { ArrowRight } from "lucide-react";
 export const Route = createFileRoute("/promotions/")({
   head: () => ({
     meta: [
-      { title: "Promotions — CarrerHub" },
+      { title: "Promotions — Career-Hub" },
       { name: "description", content: "All training promotions" },
     ],
   }),
