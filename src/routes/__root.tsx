@@ -4,6 +4,8 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -13,6 +15,9 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { seedSampleData } from "@/lib/seed";
+import { useAuth } from "@/lib/auth";
+import { ProfileMenu } from "@/components/profile-menu";
+import { AiChatBubble } from "@/components/ai-chat-bubble";
 
 function NotFoundComponent() {
   return (
@@ -98,10 +103,39 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const path = useRouterState({ select: (r) => r.location.pathname });
+  const isAuth = useAuth((s) => s.isAuthenticated);
+  const nav = useNavigate();
 
   useEffect(() => {
     seedSampleData();
   }, []);
+
+  useEffect(() => {
+    if (!isAuth && path !== "/login") {
+      nav({ to: "/login" });
+    }
+  }, [isAuth, path, nav]);
+
+  // Login page: render alone (no sidebar/header)
+  if (path === "/login") {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+        <Toaster richColors position="top-right" />
+      </QueryClientProvider>
+    );
+  }
+
+  if (!isAuth) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+          Redirecting to login…
+        </div>
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -112,15 +146,17 @@ function RootComponent() {
             <header className="h-14 border-b bg-card flex items-center px-4 gap-3 sticky top-0 z-30">
               <SidebarTrigger />
               <div className="flex-1" />
-              <div className="text-xs text-muted-foreground hidden md:block">
+              <div className="text-xs text-muted-foreground hidden md:block mr-2">
                 CareerHub · v1.0
               </div>
+              <ProfileMenu />
             </header>
             <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto">
               <Outlet />
             </main>
           </div>
         </div>
+        <AiChatBubble />
         <Toaster richColors position="top-right" />
       </SidebarProvider>
     </QueryClientProvider>
