@@ -9,12 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as GraduatesRouteImport } from './routes/graduates'
+import { Route as AiAdvisorRouteImport } from './routes/ai-advisor'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PromotionsIndexRouteImport } from './routes/promotions.index'
+import { Route as CandidatesIndexRouteImport } from './routes/candidates.index'
 import { Route as PromotionsIdRouteImport } from './routes/promotions.$id'
 import { Route as CandidatesIdRouteImport } from './routes/candidates.$id'
 import { Route as PromotionsIdCalendarRouteImport } from './routes/promotions.$id.calendar'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GraduatesRoute = GraduatesRouteImport.update({
+  id: '/graduates',
+  path: '/graduates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiAdvisorRoute = AiAdvisorRouteImport.update({
+  id: '/ai-advisor',
+  path: '/ai-advisor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -23,6 +48,11 @@ const IndexRoute = IndexRouteImport.update({
 const PromotionsIndexRoute = PromotionsIndexRouteImport.update({
   id: '/promotions/',
   path: '/promotions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CandidatesIndexRoute = CandidatesIndexRouteImport.update({
+  id: '/candidates/',
+  path: '/candidates/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PromotionsIdRoute = PromotionsIdRouteImport.update({
@@ -43,23 +73,38 @@ const PromotionsIdCalendarRoute = PromotionsIdCalendarRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai-advisor': typeof AiAdvisorRoute
+  '/graduates': typeof GraduatesRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
   '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/candidates/': typeof CandidatesIndexRoute
   '/promotions/': typeof PromotionsIndexRoute
   '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-advisor': typeof AiAdvisorRoute
+  '/graduates': typeof GraduatesRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
   '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/candidates': typeof CandidatesIndexRoute
   '/promotions': typeof PromotionsIndexRoute
   '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai-advisor': typeof AiAdvisorRoute
+  '/graduates': typeof GraduatesRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
   '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/candidates/': typeof CandidatesIndexRoute
   '/promotions/': typeof PromotionsIndexRoute
   '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
@@ -67,35 +112,83 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai-advisor'
+    | '/graduates'
+    | '/reports'
+    | '/settings'
     | '/candidates/$id'
     | '/promotions/$id'
+    | '/candidates/'
     | '/promotions/'
     | '/promotions/$id/calendar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai-advisor'
+    | '/graduates'
+    | '/reports'
+    | '/settings'
     | '/candidates/$id'
     | '/promotions/$id'
+    | '/candidates'
     | '/promotions'
     | '/promotions/$id/calendar'
   id:
     | '__root__'
     | '/'
+    | '/ai-advisor'
+    | '/graduates'
+    | '/reports'
+    | '/settings'
     | '/candidates/$id'
     | '/promotions/$id'
+    | '/candidates/'
     | '/promotions/'
     | '/promotions/$id/calendar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiAdvisorRoute: typeof AiAdvisorRoute
+  GraduatesRoute: typeof GraduatesRoute
+  ReportsRoute: typeof ReportsRoute
+  SettingsRoute: typeof SettingsRoute
   CandidatesIdRoute: typeof CandidatesIdRoute
   PromotionsIdRoute: typeof PromotionsIdRouteWithChildren
+  CandidatesIndexRoute: typeof CandidatesIndexRoute
   PromotionsIndexRoute: typeof PromotionsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/graduates': {
+      id: '/graduates'
+      path: '/graduates'
+      fullPath: '/graduates'
+      preLoaderRoute: typeof GraduatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-advisor': {
+      id: '/ai-advisor'
+      path: '/ai-advisor'
+      fullPath: '/ai-advisor'
+      preLoaderRoute: typeof AiAdvisorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -108,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/promotions'
       fullPath: '/promotions/'
       preLoaderRoute: typeof PromotionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/candidates/': {
+      id: '/candidates/'
+      path: '/candidates'
+      fullPath: '/candidates/'
+      preLoaderRoute: typeof CandidatesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/promotions/$id': {
@@ -148,8 +248,13 @@ const PromotionsIdRouteWithChildren = PromotionsIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiAdvisorRoute: AiAdvisorRoute,
+  GraduatesRoute: GraduatesRoute,
+  ReportsRoute: ReportsRoute,
+  SettingsRoute: SettingsRoute,
   CandidatesIdRoute: CandidatesIdRoute,
   PromotionsIdRoute: PromotionsIdRouteWithChildren,
+  CandidatesIndexRoute: CandidatesIndexRoute,
   PromotionsIndexRoute: PromotionsIndexRoute,
 }
 export const routeTree = rootRouteImport
