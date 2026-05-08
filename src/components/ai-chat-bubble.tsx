@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { Sparkles, MessageCircle, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
