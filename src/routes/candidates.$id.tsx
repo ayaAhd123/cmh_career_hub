@@ -22,7 +22,7 @@ import { exportCandidatePDF, exportCandidateExcel, exportCandidateHTML } from "@
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/candidates/$id")({
-  head: ({ params }) => ({ meta: [{ title: `Candidate ${params.id} — CarrerHub` }] }),
+  head: ({ params }) => ({ meta: [{ title: `Candidate ${params.id} — Career-Hub` }] }),
   component: CandidateDetail,
 });
 
