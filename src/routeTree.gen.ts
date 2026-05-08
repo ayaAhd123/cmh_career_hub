@@ -19,7 +19,6 @@ import { Route as PromotionsIndexRouteImport } from './routes/promotions.index'
 import { Route as CandidatesIndexRouteImport } from './routes/candidates.index'
 import { Route as PromotionsIdRouteImport } from './routes/promotions.$id'
 import { Route as CandidatesIdRouteImport } from './routes/candidates.$id'
-import { Route as PromotionsIdCalendarRouteImport } from './routes/promotions.$id.calendar'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -71,11 +70,6 @@ const CandidatesIdRoute = CandidatesIdRouteImport.update({
   path: '/candidates/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PromotionsIdCalendarRoute = PromotionsIdCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
-  getParentRoute: () => PromotionsIdRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -85,10 +79,9 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
-  '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/promotions/$id': typeof PromotionsIdRoute
   '/candidates/': typeof CandidatesIndexRoute
   '/promotions/': typeof PromotionsIndexRoute
-  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -98,10 +91,9 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
-  '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/promotions/$id': typeof PromotionsIdRoute
   '/candidates': typeof CandidatesIndexRoute
   '/promotions': typeof PromotionsIndexRoute
-  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -112,10 +104,9 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
-  '/promotions/$id': typeof PromotionsIdRouteWithChildren
+  '/promotions/$id': typeof PromotionsIdRoute
   '/candidates/': typeof CandidatesIndexRoute
   '/promotions/': typeof PromotionsIndexRoute
-  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,7 +121,6 @@ export interface FileRouteTypes {
     | '/promotions/$id'
     | '/candidates/'
     | '/promotions/'
-    | '/promotions/$id/calendar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -143,7 +133,6 @@ export interface FileRouteTypes {
     | '/promotions/$id'
     | '/candidates'
     | '/promotions'
-    | '/promotions/$id/calendar'
   id:
     | '__root__'
     | '/'
@@ -156,7 +145,6 @@ export interface FileRouteTypes {
     | '/promotions/$id'
     | '/candidates/'
     | '/promotions/'
-    | '/promotions/$id/calendar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -167,7 +155,7 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   CandidatesIdRoute: typeof CandidatesIdRoute
-  PromotionsIdRoute: typeof PromotionsIdRouteWithChildren
+  PromotionsIdRoute: typeof PromotionsIdRoute
   CandidatesIndexRoute: typeof CandidatesIndexRoute
   PromotionsIndexRoute: typeof PromotionsIndexRoute
 }
@@ -244,27 +232,8 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CandidatesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/promotions/$id/calendar': {
-      id: '/promotions/$id/calendar'
-      path: '/calendar'
-      fullPath: '/promotions/$id/calendar'
-      preLoaderRoute: typeof PromotionsIdCalendarRouteImport
-      parentRoute: typeof PromotionsIdRoute
-    }
   }
 }
-
-interface PromotionsIdRouteChildren {
-  PromotionsIdCalendarRoute: typeof PromotionsIdCalendarRoute
-}
-
-const PromotionsIdRouteChildren: PromotionsIdRouteChildren = {
-  PromotionsIdCalendarRoute: PromotionsIdCalendarRoute,
-}
-
-const PromotionsIdRouteWithChildren = PromotionsIdRoute._addFileChildren(
-  PromotionsIdRouteChildren,
-)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -274,10 +243,20 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   CandidatesIdRoute: CandidatesIdRoute,
-  PromotionsIdRoute: PromotionsIdRouteWithChildren,
+  PromotionsIdRoute: PromotionsIdRoute,
   CandidatesIndexRoute: CandidatesIndexRoute,
   PromotionsIndexRoute: PromotionsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
