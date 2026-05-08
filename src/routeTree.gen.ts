@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PromotionsIndexRouteImport } from './routes/promotions.index'
 import { Route as PromotionsIdRouteImport } from './routes/promotions.$id'
+import { Route as CandidatesIdRouteImport } from './routes/candidates.$id'
+import { Route as PromotionsIdCalendarRouteImport } from './routes/promotions.$id.calendar'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,34 +30,67 @@ const PromotionsIdRoute = PromotionsIdRouteImport.update({
   path: '/promotions/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CandidatesIdRoute = CandidatesIdRouteImport.update({
+  id: '/candidates/$id',
+  path: '/candidates/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromotionsIdCalendarRoute = PromotionsIdCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => PromotionsIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/promotions/$id': typeof PromotionsIdRoute
+  '/candidates/$id': typeof CandidatesIdRoute
+  '/promotions/$id': typeof PromotionsIdRouteWithChildren
   '/promotions/': typeof PromotionsIndexRoute
+  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/promotions/$id': typeof PromotionsIdRoute
+  '/candidates/$id': typeof CandidatesIdRoute
+  '/promotions/$id': typeof PromotionsIdRouteWithChildren
   '/promotions': typeof PromotionsIndexRoute
+  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/promotions/$id': typeof PromotionsIdRoute
+  '/candidates/$id': typeof CandidatesIdRoute
+  '/promotions/$id': typeof PromotionsIdRouteWithChildren
   '/promotions/': typeof PromotionsIndexRoute
+  '/promotions/$id/calendar': typeof PromotionsIdCalendarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/promotions/$id' | '/promotions/'
+  fullPaths:
+    | '/'
+    | '/candidates/$id'
+    | '/promotions/$id'
+    | '/promotions/'
+    | '/promotions/$id/calendar'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/promotions/$id' | '/promotions'
-  id: '__root__' | '/' | '/promotions/$id' | '/promotions/'
+  to:
+    | '/'
+    | '/candidates/$id'
+    | '/promotions/$id'
+    | '/promotions'
+    | '/promotions/$id/calendar'
+  id:
+    | '__root__'
+    | '/'
+    | '/candidates/$id'
+    | '/promotions/$id'
+    | '/promotions/'
+    | '/promotions/$id/calendar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  PromotionsIdRoute: typeof PromotionsIdRoute
+  CandidatesIdRoute: typeof CandidatesIdRoute
+  PromotionsIdRoute: typeof PromotionsIdRouteWithChildren
   PromotionsIndexRoute: typeof PromotionsIndexRoute
 }
 
@@ -82,12 +117,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PromotionsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/candidates/$id': {
+      id: '/candidates/$id'
+      path: '/candidates/$id'
+      fullPath: '/candidates/$id'
+      preLoaderRoute: typeof CandidatesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/promotions/$id/calendar': {
+      id: '/promotions/$id/calendar'
+      path: '/calendar'
+      fullPath: '/promotions/$id/calendar'
+      preLoaderRoute: typeof PromotionsIdCalendarRouteImport
+      parentRoute: typeof PromotionsIdRoute
+    }
   }
 }
 
+interface PromotionsIdRouteChildren {
+  PromotionsIdCalendarRoute: typeof PromotionsIdCalendarRoute
+}
+
+const PromotionsIdRouteChildren: PromotionsIdRouteChildren = {
+  PromotionsIdCalendarRoute: PromotionsIdCalendarRoute,
+}
+
+const PromotionsIdRouteWithChildren = PromotionsIdRoute._addFileChildren(
+  PromotionsIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  PromotionsIdRoute: PromotionsIdRoute,
+  CandidatesIdRoute: CandidatesIdRoute,
+  PromotionsIdRoute: PromotionsIdRouteWithChildren,
   PromotionsIndexRoute: PromotionsIndexRoute,
 }
 export const routeTree = rootRouteImport
