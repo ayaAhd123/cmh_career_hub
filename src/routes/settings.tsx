@@ -32,7 +32,7 @@ function SettingsPage() {
   const [email, setEmail] = useState(profile.email);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
 
   const saveProfile = () => {
     if (!name.trim()) return toast.error("Name required");
@@ -42,11 +42,11 @@ function SettingsPage() {
   };
 
   const savePassword = () => {
-    if (next !== confirm) return toast.error("Passwords don't match");
+    if (next !== confirmPwd) return toast.error("Passwords don't match");
     const r = changePassword(current, next);
     if (!r.ok) return toast.error(r.error ?? "Failed");
     toast.success("Password changed");
-    setCurrent(""); setNext(""); setConfirm("");
+    setCurrent(""); setNext(""); setConfirmPwd("");
   };
 
   return (
@@ -99,10 +99,10 @@ function SettingsPage() {
             </div>
             <div>
               <Label>Confirm new password</Label>
-              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              <Input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} />
             </div>
           </div>
-          <Button onClick={savePassword} disabled={!current || !next || !confirm}>
+          <Button onClick={savePassword} disabled={!current || !next || !confirmPwd}>
             Update password
           </Button>
         </CardContent>
