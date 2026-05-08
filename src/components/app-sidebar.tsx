@@ -43,7 +43,7 @@ export function AppSidebar() {
             C
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="font-bold text-foreground">Career-Hub</span>
+            <span className="font-bold text-foreground">CareerHub</span>
             <span className="text-[10px] text-muted-foreground">by CMH Cloud Marketing Hub</span>
           </div>
         </div>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings — Career-Hub" }] }),
+  head: () => ({ meta: [{ title: "Settings — CareerHub" }] }),
   component: SettingsPage,
 });
 
@@ -26,7 +26,7 @@ function SettingsPage() {
         <CardHeader><CardTitle>Company</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p><span className="text-muted-foreground">Name:</span> CMH — Cloud Marketing Hub</p>
-          <p><span className="text-muted-foreground">Product:</span> Career-Hub v1.0</p>
+          <p><span className="text-muted-foreground">Product:</span> CareerHub v1.0</p>
           <p><span className="text-muted-foreground">Default duration:</span> 5 weeks · 25 working days (locked)</p>
           <p><span className="text-muted-foreground">Passing threshold:</span> 10 / 20</p>
         </CardContent>

@@ -13,7 +13,7 @@ import {
 } from "@/lib/exports";
 
 export const Route = createFileRoute("/reports")({
-  head: () => ({ meta: [{ title: "Reports & Exports — Career-Hub" }] }),
+  head: () => ({ meta: [{ title: "Reports & Exports — CareerHub" }] }),
   component: Reports,
 });
 

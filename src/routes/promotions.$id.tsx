@@ -39,7 +39,7 @@ import {
 export const Route = createFileRoute("/promotions/$id")({
   head: ({ params }) => ({
     meta: [
-      { title: `${params.id} — Career-Hub` },
+      { title: `${params.id} — CareerHub` },
       { name: "description", content: `Detailed dashboard for promotion ${params.id}` },
     ],
   }),
