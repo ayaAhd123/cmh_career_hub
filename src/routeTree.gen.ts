@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as GraduatesRouteImport } from './routes/graduates'
 import { Route as AiAdvisorRouteImport } from './routes/ai-advisor'
 import { Route as IndexRouteImport } from './routes/index'
@@ -28,6 +29,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GraduatesRoute = GraduatesRouteImport.update({
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ai-advisor': typeof AiAdvisorRoute
   '/graduates': typeof GraduatesRoute
+  '/login': typeof LoginRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ai-advisor': typeof AiAdvisorRoute
   '/graduates': typeof GraduatesRoute
+  '/login': typeof LoginRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/ai-advisor': typeof AiAdvisorRoute
   '/graduates': typeof GraduatesRoute
+  '/login': typeof LoginRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/'
     | '/ai-advisor'
     | '/graduates'
+    | '/login'
     | '/reports'
     | '/settings'
     | '/candidates/$id'
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
     | '/'
     | '/ai-advisor'
     | '/graduates'
+    | '/login'
     | '/reports'
     | '/settings'
     | '/candidates/$id'
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '/'
     | '/ai-advisor'
     | '/graduates'
+    | '/login'
     | '/reports'
     | '/settings'
     | '/candidates/$id'
@@ -151,6 +163,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AiAdvisorRoute: typeof AiAdvisorRoute
   GraduatesRoute: typeof GraduatesRoute
+  LoginRoute: typeof LoginRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   CandidatesIdRoute: typeof CandidatesIdRoute
@@ -173,6 +186,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/graduates': {
@@ -250,6 +270,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AiAdvisorRoute: AiAdvisorRoute,
   GraduatesRoute: GraduatesRoute,
+  LoginRoute: LoginRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   CandidatesIdRoute: CandidatesIdRoute,
