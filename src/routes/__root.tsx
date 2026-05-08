@@ -58,13 +58,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "NexusHR — HR Training Management by CMH" },
+      { title: "CarrerHub — HR Training Management by CMH" },
       {
         name: "description",
         content:
-          "NexusHR: manage training promotions, evaluate candidates, generate reports — by CMH Cloud Marketing Hub.",
+          "CarrerHub: manage training promotions, evaluate candidates, generate reports — by CMH Cloud Marketing Hub.",
       },
-      { property: "og:title", content: "NexusHR" },
+      { property: "og:title", content: "CarrerHub" },
       { property: "og:description", content: "HR Training Management System" },
       { property: "og:type", content: "website" },
     ],
@@ -113,7 +113,7 @@ function RootComponent() {
               <SidebarTrigger />
               <div className="flex-1" />
               <div className="text-xs text-muted-foreground hidden md:block">
-                NexusHR · v1.0
+                CarrerHub · v1.0
               </div>
             </header>
             <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto">

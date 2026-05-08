@@ -43,7 +43,7 @@ export function AppSidebar() {
             N
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="font-bold text-foreground">NexusHR</span>
+            <span className="font-bold text-foreground">CarrerHub</span>
             <span className="text-[10px] text-muted-foreground">by CMH Cloud Marketing Hub</span>
           </div>
         </div>

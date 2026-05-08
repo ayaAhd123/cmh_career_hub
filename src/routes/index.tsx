@@ -23,7 +23,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — NexusHR" },
+      { title: "Dashboard — CarrerHub" },
       { name: "description", content: "Overview of all training promotions and candidates." },
     ],
   }),
