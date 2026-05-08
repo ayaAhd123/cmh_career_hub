@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,10 +14,12 @@ export const Route = createFileRoute("/graduates")({
 });
 
 function Graduates() {
-  const candidates = useStore((s) =>
-    s.candidates.filter((c) => !c.archived && (c.status === "Graduated" || (overallAverage(c) >= 10 && c.status !== "Active"))),
-  );
+  const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
+  const candidates = useMemo(
+    () => allCandidates.filter((c) => !c.archived && (c.status === "Graduated" || (overallAverage(c) >= 10 && c.status !== "Active"))),
+    [allCandidates],
+  );
 
   const exportXls = () => {
     const rows = candidates.map((c) => {
