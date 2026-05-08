@@ -39,8 +39,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg overflow-hidden bg-primary">
-            <img src={logo} alt="Career-Hub logo" className="h-full w-full object-contain" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
+            C
           </div>
           <div className="flex flex-col leading-tight">
             <span className="font-bold text-foreground">Career-Hub</span>
