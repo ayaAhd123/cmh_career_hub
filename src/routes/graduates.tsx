@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { CategoryBadge } from "@/components/badges";
 import { categoryFor, formatDate, overallAverage } from "@/lib/calc";
-import { Award, Download } from "lucide-react";
+import { Award, Download, X } from "lucide-react";
 import * as XLSX from "xlsx";
+import { SearchSelect } from "@/components/search-select";
 
 export const Route = createFileRoute("/graduates")({
   head: () => ({ meta: [{ title: "Graduates — CareerHub" }] }),
@@ -16,10 +18,23 @@ export const Route = createFileRoute("/graduates")({
 function Graduates() {
   const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+
   const candidates = useMemo(
     () => allCandidates.filter((c) => !c.archived && (c.status === "Graduated" || (overallAverage(c) >= 10 && c.status !== "Active"))),
     [allCandidates],
   );
+
+  const filteredCandidates = useMemo(() => {
+    return candidates.filter((c) => {
+      const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+      const matchesSearch = fullName.includes(searchTerm.toLowerCase());
+      const category = categoryFor(overallAverage(c));
+      const matchesCategory = !selectedCategory || category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [candidates, searchTerm, selectedCategory]);
 
   const exportXls = () => {
     const rows = candidates.map((c) => {
@@ -55,8 +70,35 @@ function Graduates() {
           <Download className="mr-1 h-4 w-4" /> Export Excel
         </Button>
       </div>
+      <div className="flex gap-3 items-end flex-wrap">
+        <div className="flex-1 min-w-xs">
+          <label className="text-sm font-medium text-muted-foreground block mb-2">Search by name</label>
+          <Input
+            placeholder="Search graduates..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full"
+          />
+        </div>
+        <div className="min-w-xs">
+          <label className="text-sm font-medium text-muted-foreground block mb-2">Filter by category</label>
+          <SearchSelect
+            value={selectedCategory}
+            onChange={setSelectedCategory}
+            options={[
+              { value: "", label: "All Categories" },
+              { value: "Excellent", label: "Excellent" },
+              { value: "Good", label: "Good" },
+              { value: "Passable", label: "Passable" },
+              { value: "Critical", label: "Critical" },
+            ]}
+            placeholder="Select category..."
+            className="w-full md:min-w-[200px]"
+          />
+        </div>
+      </div>
       <Card>
-        <CardHeader><CardTitle>{candidates.length} graduates</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{filteredCandidates.length} of {candidates.length} graduates</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b text-left text-xs uppercase text-muted-foreground">
@@ -68,7 +110,7 @@ function Graduates() {
               <th></th>
             </tr></thead>
             <tbody>
-              {candidates.map((c) => {
+              {filteredCandidates.map((c) => {
                 const a = overallAverage(c);
                 const promo = promotions.find((p) => p.id === c.promotionId);
                 return (
@@ -86,8 +128,8 @@ function Graduates() {
                   </tr>
                 );
               })}
-              {candidates.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No graduates yet.</td></tr>
+              {filteredCandidates.length === 0 && (
+                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No graduates found.</td></tr>
               )}
             </tbody>
           </table>
