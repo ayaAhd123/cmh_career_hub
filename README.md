@@ -1,4 +1,4 @@
-# CMH_CARRER_HUB Monorepo
+# CMH_CAREER_HUB Monorepo
 
 This repository is now organized as a monorepo with:
 
