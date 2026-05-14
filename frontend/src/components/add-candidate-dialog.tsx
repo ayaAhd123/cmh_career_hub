@@ -37,7 +37,7 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     recruitmentDate: new Date().toISOString().slice(0, 10),
     educationLevel: "Bac+3" as EducationLevel,
     gender: "Male" as Gender,
-    birthDate: "1995-01-01",
+    age: 22,
     diplomaName: "",
     diplomaAverage: 12,
     photo: "",
@@ -59,8 +59,8 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     setForm({
       firstName: "", lastName: "", email: "", phone: "+212 ",
       recruitmentDate: new Date().toISOString().slice(0, 10),
-      educationLevel: "Bac+3", gender: "Male", birthDate: "1995-01-01",
-      diplomaName: "", diplomaAverage: 12, photo: "",
+      educationLevel: "Bac+3" as EducationLevel, gender: "Male" as Gender,
+      age: 22, diplomaName: "", diplomaAverage: 12, photo: "",
     });
   };
 
@@ -97,8 +97,8 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
             <Input type="date" value={form.recruitmentDate} onChange={(e) => setForm({ ...form, recruitmentDate: e.target.value })} />
           </div>
           <div>
-            <Label>Birth Date *</Label>
-            <Input type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
+            <Label>Age *</Label>
+            <Input type="number" min={18} max={65} value={form.age} onChange={(e) => setForm({ ...form, age: parseInt(e.target.value) || 0 })} />
           </div>
           <div>
             <Label>Gender *</Label>
