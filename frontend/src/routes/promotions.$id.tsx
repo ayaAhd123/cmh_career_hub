@@ -22,15 +22,19 @@ import {
   Star,
   AlertTriangle,
   Download,
-
   ArrowRight,
+  Search,
+  X,
 } from "lucide-react";
 import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Label as RechartsLabel
 } from "recharts";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { AddCandidateDialog } from "@/components/add-candidate-dialog";
 import {
   exportPromotionPDF, exportPromotionExcel, exportPromotionCSV, exportPromotionHTML,
@@ -51,6 +55,26 @@ const COLORS: Record<string, string> = {
   Good: "hsl(220 70% 55%)",
   Passable: "hsl(40 90% 55%)",
   Critical: "hsl(15 75% 55%)",
+};
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-background border rounded-lg shadow-sm p-3 text-sm">
+        {label && <p className="font-semibold mb-1.5 text-foreground">{label}</p>}
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2 mt-1">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color || entry.payload?.fill || "#000" }} />
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              {!label && <span className="font-medium text-foreground">{entry.name}:</span>} 
+              {entry.value} candidates
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
 };
 
 function PromotionDetail() {
@@ -90,12 +114,11 @@ function PromotionDetail() {
 
   const scoreDist = useMemo(() => {
     const ranges = [
-      { name: "0-5", min: 0, max: 5 },
-      { name: "5-10", min: 5, max: 10 },
-      { name: "10-12", min: 10, max: 12 },
-      { name: "12-14", min: 12, max: 14 },
-      { name: "14-16", min: 14, max: 16 },
-      { name: "16-20", min: 16, max: 20.01 },
+      { name: "0-1", min: 0, max: 1 },
+      { name: "1-2", min: 1, max: 2 },
+      { name: "2-3", min: 2, max: 3 },
+      { name: "3-4", min: 3, max: 4 },
+      { name: "4-5", min: 4, max: 5.01 },
     ];
     return ranges.map((r) => ({
       name: r.name,
@@ -201,33 +224,44 @@ function PromotionDetail() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>Performance by Category</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm font-semibold">Performance by Category</CardTitle></CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={categoryDist} dataKey="value" nameKey="name" outerRadius={90} label>
+                  <Pie data={categoryDist} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} paddingAngle={3} stroke="none">
                     {categoryDist.map((d) => (
                       <Cell key={d.name} fill={COLORS[d.name]} />
                     ))}
+                    <RechartsLabel
+                      value={categoryDist.reduce((a, b) => a + b.value, 0)}
+                      position="center"
+                      className="fill-foreground text-2xl font-bold"
+                    />
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: "12px" }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Score Distribution</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm font-semibold">Score Distribution</CardTitle></CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={scoreDist}>
-                  <XAxis dataKey="name" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="hsl(220 70% 55%)" radius={[4, 4, 0, 0]} />
+                  <defs>
+                    <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(220 70% 65%)" stopOpacity={1} />
+                      <stop offset="95%" stopColor="hsl(220 70% 45%)" stopOpacity={0.8} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} width={28} tickLine={false} axisLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
+                  <Bar dataKey="count" fill="url(#scoreGradient)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -256,7 +290,7 @@ function PromotionDetail() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{c.firstName} {c.lastName}</p>
-                      <p className="text-xs text-muted-foreground">{a.toFixed(2)}/20</p>
+                      <p className="text-xs text-muted-foreground">{a.toFixed(2)}/5</p>
                     </div>
                     <CategoryBadge category={categoryFor(a)} />
                   </Link>
@@ -272,34 +306,49 @@ function PromotionDetail() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle>Candidates ({filtered.length})</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
-              <Input
-                placeholder="Search name or email..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-56"
-              />
-              <select
-                value={filterCat}
-                onChange={(e) => setFilterCat(e.target.value)}
-                className="h-9 px-2 rounded-md border border-input bg-background text-sm"
-              >
-                <option value="all">All Categories</option>
-                <option>Excellent</option>
-                <option>Good</option>
-                <option>Passable</option>
-                <option>Critical</option>
-              </select>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="h-9 px-2 rounded-md border border-input bg-background text-sm"
-              >
-                <option value="all">All Statuses</option>
-                <option>Active</option>
-                <option>Graduated</option>
-                <option>Dismissed</option>
-                <option>Terminated</option>
-              </select>
+              <div className="relative w-56">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search name or email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 pr-8 bg-muted/40"
+                />
+                {search && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground"
+                    onClick={() => setSearch("")}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              <Select value={filterCat} onValueChange={setFilterCat}>
+                <SelectTrigger className="w-[160px] bg-muted/40">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="Excellent">Excellent</SelectItem>
+                  <SelectItem value="Good">Good</SelectItem>
+                  <SelectItem value="Passable">Passable</SelectItem>
+                  <SelectItem value="Critical">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-[150px] bg-muted/40">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Graduated">Graduated</SelectItem>
+                  <SelectItem value="Dismissed">Dismissed</SelectItem>
+                  <SelectItem value="Terminated">Terminated</SelectItem>
+                </SelectContent>
+              </Select>
               <AddCandidateDialog promotionId={promotion.id} />
             </div>
           </div>
@@ -312,7 +361,7 @@ function PromotionDetail() {
                   <th className="py-2 px-3">Name</th>
                   <th className="py-2 px-3">Email</th>
                   <th className="py-2 px-3">Education</th>
-                  <th className="py-2 px-3">Avg /20</th>
+                  <th className="py-2 px-3">Avg /5</th>
                   <th className="py-2 px-3">Category</th>
                   <th className="py-2 px-3">Status</th>
                   <th className="py-2 px-3"></th>

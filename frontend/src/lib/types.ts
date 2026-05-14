@@ -1,7 +1,7 @@
 export type Category = "Excellent" | "Good" | "Passable" | "Critical";
 export type CandidateStatus = "Active" | "Graduated" | "Dismissed" | "Terminated" | "Archived";
 export type PromotionStatus = "Active" | "Completed" | "Archived";
-export type EducationLevel = "Bac" | "Bac+2" | "Bac+3" | "Bac+5" | "Bac+8";
+export type EducationLevel = "Bac+2" | "Bac+3" | "Bac+5" | "Bac+8";
 
 export const MODULE_NAMES = [
   "Notions en Email Marketing",
@@ -38,6 +38,8 @@ export interface ModuleScore {
   score: number;    // /20
 }
 
+export type Gender = "Male" | "Female" | "Other";
+
 export interface Candidate {
   id: string;
   promotionId: string;
@@ -46,6 +48,8 @@ export interface Candidate {
   email: string;
   phone: string;
   recruitmentDate: string;
+  birthDate: string; // ISO date for age calculations
+  gender: Gender;
   photo?: string;
   educationLevel: EducationLevel;
   diplomaName: string;

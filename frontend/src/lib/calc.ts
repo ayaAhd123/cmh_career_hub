@@ -16,13 +16,13 @@ export const testsAvg = (modules: ModuleScore[]): number =>
 export const overallAverage = (c: Candidate): number => {
   const sa = skillsAvg(c.skills); // 0-5
   const ta = testsAvg(c.modules); // 0-20
-  return Math.round(((sa * 4 + ta) / 2) * 100) / 100;
+  return Math.round(((sa + (ta / 4)) / 2) * 100) / 100;
 };
 
 export const categoryFor = (avg: number): Category => {
-  if (avg >= 16) return "Excellent";
-  if (avg >= 14) return "Good";
-  if (avg >= 10) return "Passable";
+  if (avg >= 4.0) return "Excellent";
+  if (avg >= 3.5) return "Good";
+  if (avg >= 2.5) return "Passable";
   return "Critical";
 };
 
@@ -59,7 +59,7 @@ export const promotionStatus = (p: Promotion): Promotion["status"] => {
 export const passRate = (cands: Candidate[]) => {
   const active = cands.filter((c) => !c.archived);
   if (active.length === 0) return 0;
-  const passed = active.filter((c) => overallAverage(c) >= 10).length;
+  const passed = active.filter((c) => overallAverage(c) >= 2.5).length;
   return Math.round((passed / active.length) * 100);
 };
 

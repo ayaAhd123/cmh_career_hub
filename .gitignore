@@ -36,3 +36,4 @@ backend/.DS_Store
 *.njsproj
 *.sln
 *.sw?
+node_modules
