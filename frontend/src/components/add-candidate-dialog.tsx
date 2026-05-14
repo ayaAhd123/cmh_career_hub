@@ -36,6 +36,8 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     phone: "+212 ",
     recruitmentDate: new Date().toISOString().slice(0, 10),
     educationLevel: "Bac+3" as EducationLevel,
+    gender: "Male" as Gender,
+    birthDate: "1995-01-01",
     diplomaName: "",
     diplomaAverage: 12,
     photo: "",
@@ -57,7 +59,8 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     setForm({
       firstName: "", lastName: "", email: "", phone: "+212 ",
       recruitmentDate: new Date().toISOString().slice(0, 10),
-      educationLevel: "Bac+3", diplomaName: "", diplomaAverage: 12, photo: "",
+      educationLevel: "Bac+3", gender: "Male", birthDate: "1995-01-01",
+      diplomaName: "", diplomaAverage: 12, photo: "",
     });
   };
 
@@ -94,21 +97,36 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
             <Input type="date" value={form.recruitmentDate} onChange={(e) => setForm({ ...form, recruitmentDate: e.target.value })} />
           </div>
           <div>
+            <Label>Birth Date *</Label>
+            <Input type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
+          </div>
+          <div>
+            <Label>Gender *</Label>
+            <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v as Gender })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label>Education Level *</Label>
             <Select value={form.educationLevel} onValueChange={(v) => setForm({ ...form, educationLevel: v as EducationLevel })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {(["Bac", "Bac+2", "Bac+3", "Bac+5", "Bac+8"] as const).map((l) => (
+                {(["Bac+2", "Bac+3", "Bac+5", "Bac+8"] as const).map((l) => (
                   <SelectItem key={l} value={l}>{l}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <Label>Diploma Name *</Label>
             <Input value={form.diplomaName} onChange={(e) => setForm({ ...form, diplomaName: e.target.value })} />
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <Label>Diploma Average (/20) *</Label>
             <Input type="number" min={0} max={20} step={0.1} value={form.diplomaAverage} onChange={(e) => setForm({ ...form, diplomaAverage: parseFloat(e.target.value) || 0 })} />
           </div>
