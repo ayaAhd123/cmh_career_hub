@@ -42,7 +42,7 @@ export const seedSampleData = () => {
       const ln = rand(lastNames);
       const email = `${fn.toLowerCase()}.${ln.toLowerCase()}${i}@cmh.ma`;
       const gender = rand(genders);
-      const birthDate = format(subDays(today, Math.floor(Math.random() * 365 * 10) + 20 * 365), "yyyy-MM-dd");
+      const age = Math.floor(Math.random() * 15) + 20; // 20 to 34
 
       const res = s.addCandidate({
         promotionId: promo.id,
@@ -53,7 +53,7 @@ export const seedSampleData = () => {
         recruitmentDate: format(subDays(new Date(promo.start), Math.floor(Math.random() * 20)), "yyyy-MM-dd"),
         educationLevel: rand(educations),
         gender,
-        birthDate,
+        age,
         diplomaName: rand(diplomas),
         diplomaAverage: randF(10, 18),
       });
