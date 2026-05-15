@@ -17,6 +17,7 @@ import { Route as AiAdvisorRouteImport } from './routes/ai-advisor'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PromotionsIndexRouteImport } from './routes/promotions.index'
 import { Route as CandidatesIndexRouteImport } from './routes/candidates.index'
+import { Route as PromotionsArchivedRouteImport } from './routes/promotions.archived'
 import { Route as PromotionsIdRouteImport } from './routes/promotions.$id'
 import { Route as CandidatesIdRouteImport } from './routes/candidates.$id'
 
@@ -60,6 +61,11 @@ const CandidatesIndexRoute = CandidatesIndexRouteImport.update({
   path: '/candidates/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PromotionsArchivedRoute = PromotionsArchivedRouteImport.update({
+  id: '/promotions/archived',
+  path: '/promotions/archived',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PromotionsIdRoute = PromotionsIdRouteImport.update({
   id: '/promotions/$id',
   path: '/promotions/$id',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
   '/promotions/$id': typeof PromotionsIdRoute
+  '/promotions/archived': typeof PromotionsArchivedRoute
   '/candidates/': typeof CandidatesIndexRoute
   '/promotions/': typeof PromotionsIndexRoute
 }
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
   '/promotions/$id': typeof PromotionsIdRoute
+  '/promotions/archived': typeof PromotionsArchivedRoute
   '/candidates': typeof CandidatesIndexRoute
   '/promotions': typeof PromotionsIndexRoute
 }
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/candidates/$id': typeof CandidatesIdRoute
   '/promotions/$id': typeof PromotionsIdRoute
+  '/promotions/archived': typeof PromotionsArchivedRoute
   '/candidates/': typeof CandidatesIndexRoute
   '/promotions/': typeof PromotionsIndexRoute
 }
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/candidates/$id'
     | '/promotions/$id'
+    | '/promotions/archived'
     | '/candidates/'
     | '/promotions/'
   fileRoutesByTo: FileRoutesByTo
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/candidates/$id'
     | '/promotions/$id'
+    | '/promotions/archived'
     | '/candidates'
     | '/promotions'
   id:
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/candidates/$id'
     | '/promotions/$id'
+    | '/promotions/archived'
     | '/candidates/'
     | '/promotions/'
   fileRoutesById: FileRoutesById
@@ -156,6 +168,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   CandidatesIdRoute: typeof CandidatesIdRoute
   PromotionsIdRoute: typeof PromotionsIdRoute
+  PromotionsArchivedRoute: typeof PromotionsArchivedRoute
   CandidatesIndexRoute: typeof CandidatesIndexRoute
   PromotionsIndexRoute: typeof PromotionsIndexRoute
 }
@@ -218,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CandidatesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/promotions/archived': {
+      id: '/promotions/archived'
+      path: '/promotions/archived'
+      fullPath: '/promotions/archived'
+      preLoaderRoute: typeof PromotionsArchivedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/promotions/$id': {
       id: '/promotions/$id'
       path: '/promotions/$id'
@@ -244,6 +264,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   CandidatesIdRoute: CandidatesIdRoute,
   PromotionsIdRoute: PromotionsIdRoute,
+  PromotionsArchivedRoute: PromotionsArchivedRoute,
   CandidatesIndexRoute: CandidatesIndexRoute,
   PromotionsIndexRoute: PromotionsIndexRoute,
 }
