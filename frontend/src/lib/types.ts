@@ -39,7 +39,7 @@ export interface ModuleScore {
   score: number;    // /20
 }
 
-export type Gender = "Male" | "Female" | "Other";
+export type Gender = "Homme" | "Femme";
 
 export interface Candidate {
   id: string;

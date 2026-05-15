@@ -34,7 +34,7 @@ export const seedSampleData = () => {
     { id: p3.id, start: p3.startDate, count: 5 },
   ];
 
-  const genders = ["Male", "Female"] as const;
+  const genders = ["Homme", "Femme"] as const;
 
   promos.forEach((promo, idx) => {
     for (let i = 0; i < promo.count; i++) {

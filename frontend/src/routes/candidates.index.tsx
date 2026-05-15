@@ -22,7 +22,7 @@ function AllCandidates() {
     (c) =>
       `${c.firstName} ${c.lastName}`.toLowerCase().includes(q.toLowerCase()) ||
       c.email.toLowerCase().includes(q.toLowerCase()),
-  );
+  ).sort((a, b) => overallAverage(b) - overallAverage(a));
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">All Candidates</h1>

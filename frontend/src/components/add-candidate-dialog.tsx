@@ -36,7 +36,7 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     phone: "+212 ",
     recruitmentDate: new Date().toISOString().slice(0, 10),
     educationLevel: "Bac+3" as EducationLevel,
-    gender: "Male" as Gender,
+    gender: "Homme" as Gender,
     age: 22,
     diplomaName: "",
     diplomaAverage: 12,
@@ -59,7 +59,7 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     setForm({
       firstName: "", lastName: "", email: "", phone: "+212 ",
       recruitmentDate: new Date().toISOString().slice(0, 10),
-      educationLevel: "Bac+3" as EducationLevel, gender: "Male" as Gender,
+      educationLevel: "Bac+3" as EducationLevel, gender: "Homme" as Gender,
       age: 22, diplomaName: "", diplomaAverage: 12, photo: "",
     });
   };
@@ -105,9 +105,8 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
             <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v as Gender })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Male">Male</SelectItem>
-                <SelectItem value="Female">Female</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
+                <SelectItem value="Homme">Homme</SelectItem>
+                <SelectItem value="Femme">Femme</SelectItem>
               </SelectContent>
             </Select>
           </div>
