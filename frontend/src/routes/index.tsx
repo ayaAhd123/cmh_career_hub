@@ -31,9 +31,8 @@ import {
 } from "recharts";
 
 const GENDER_COLORS: Record<string, string> = {
-  Male: "#6366f1", // Indigo
-  Female: "#ec4899", // Pink
-  Other: "#f59e0b", // Amber
+  Homme: "#6366f1", // Indigo
+  Femme: "#ec4899", // Pink
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -188,7 +187,7 @@ function DashboardPage() {
   // Gender donut data
   const genderData = useMemo(() => {
     const map = filteredCandsForStats.reduce((acc, c) => {
-      const g = (c as any).gender || "Other";
+      const g = (c as any).gender || "Homme";
       if (!acc[g]) acc[g] = { count: 0, sum: 0 };
       acc[g].count += 1;
       acc[g].sum += overallAverage(c);
