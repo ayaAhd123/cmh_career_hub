@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Sparkles, Send, BarChart3, PieChart as PieChartIcon, TrendingUp } from "lucide-react";
 import { categoryFor, overallAverage } from "@/lib/calc";
 import type { EducationLevel, Category } from "@/lib/types";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI("AIzaSyDDByjY5g584ToqdOEU4wZHmMC14hpAwCo");
 
 export const Route = createFileRoute("/ai-advisor")({
   head: () => ({ meta: [{ title: "AI Advisor — CareerHub" }] }),
@@ -18,6 +21,7 @@ function AIAdvisor() {
   const promotions = useStore((s) => s.promotions);
   const [messages, setMessages] = useState<{ role: "ai" | "user"; content: string }[]>([]);
   const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const analytics = useMemo(() => {
@@ -91,60 +95,45 @@ function AIAdvisor() {
     scrollToBottom();
   }, [messages]);
 
-  const generateAIResponse = (query: string): string => {
-    const q = query.toLowerCase();
+  const generateAIResponse = async (query: string): Promise<string> => {
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const prompt = `You are an AI HR Advisor for CareerHub.
+Here is the current analytics data of our candidates:
+${JSON.stringify(analytics, null, 2)}
 
-    const responses: { keywords: string[]; response: string }[] = [
-      {
-        keywords: ["education", "bac", "level", "qualification"],
-        response: `Based on the data analysis:\n\n📊 **Education Level Distribution:**\n${Object.entries(analytics.educationDistribution)
-          .map(([level, count]) => `• ${level}: ${count} candidates (${((count / analytics.total) * 100).toFixed(1)}%)`)
-          .join("\n")}\n\nCandidates with higher education levels (Bac+5, Bac+8) tend to perform exceptionally. The data suggests prioritizing candidates with advanced education for technical roles.`,
-      },
-      {
-        keywords: ["skill", "top performing", "best skill", "correlation"],
-        response: `**Top Performing Skills Analysis:**\n\n🌟 Top 3 Skills:\n${analytics.topSkills
-          .map(([skill, score]) => `• ${skill.charAt(0).toUpperCase() + skill.slice(1)}: ${score}/5`)
-          .join("\n")}\n\nThese skills show the strongest correlation with candidate success and graduation rates.`,
-      },
-      {
-        keywords: ["termination", "dismissed", "fail", "dropout"],
-        response: `**Candidate Status Overview:**\n\n📈 **Key Metrics:**\n• Success Rate (Graduated): ${analytics.successRate}%\n• Termination Rate: ${analytics.terminationRate}%\n• Dismissed: ${analytics.dismissed}\n• Currently Active: ${analytics.active}\n\nTermination patterns suggest focusing on candidates with strong organizational and initiative skills during recruitment.`,
-      },
-      {
-        keywords: ["performance", "category", "excellent", "good", "passable"],
-        response: `**Performance Distribution:**\n\n📊 Candidate Categories:\n${Object.entries(analytics.categoryDistribution)
-          .map(([cat, count]) => `• ${cat}: ${count} candidates (${((count / analytics.total) * 100).toFixed(1)}%)`)
-          .join("\n")}\n\nThis distribution indicates a healthy talent pool with ${analytics.categoryDistribution["Excellent"] || 0} excellent performers to build your strategic initiatives on.`,
-      },
-      {
-        keywords: ["recruitment", "profile", "best", "ideal"],
-        response: `**Ideal Recruitment Profile:**\n\n🎯 **Recommended Profile:**\n• Education: Bac+5 or higher\n• Key Skills: ${analytics.topSkills.map(([s]) => s).join(", ")}\n• Expected Success Rate: ~${analytics.successRate}%\n\nThis profile is derived from analyzing ${analytics.total} candidates and their outcomes.`,
-      },
-      {
-        keywords: ["summary", "overview", "stats", "statistics", "data"],
-        response: `**Overall Analytics Summary:**\n\n📊 **Total Candidates:** ${analytics.total}\n• Active: ${analytics.active}\n• Graduated: ${analytics.graduated}\n• Terminated: ${analytics.terminated}\n• Dismissed: ${analytics.dismissed}\n\n💡 **Key Insight:** Success rate is ${analytics.successRate}%, with top skills being ${analytics.topSkills.map(([s]) => s).join(", ")}.`,
-      },
-    ];
+Here is the list of promotions:
+${JSON.stringify(promotions, null, 2)}
 
-    const match = responses.find((r) => r.keywords.some((k) => q.includes(k)));
-    if (match) return match.response;
+Here is the list of candidates:
+${JSON.stringify(candidates, null, 2)}
 
-    return `I've analyzed ${analytics.total} candidates in the system. Ask me about:\n• Education level distribution\n• Top performing skills\n• Termination and success rates\n• Performance categories\n• Ideal recruitment profiles\n\nI can help you make data-driven recruitment decisions.`;
+The user is asking: "${query}"
+
+Provide a helpful, concise, and data-driven response based strictly on the provided data. Use markdown formatting.`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      console.error("AI Generation Error:", error);
+      return "Sorry, I am currently unable to process your request. Please check your API key or try again later.";
+    }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
     const userMessage = inputValue;
     setInputValue("");
 
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setIsTyping(true);
 
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(userMessage);
-      setMessages((prev) => [...prev, { role: "ai", content: aiResponse }]);
-    }, 500);
+    const aiResponse = await generateAIResponse(userMessage);
+    
+    setMessages((prev) => [...prev, { role: "ai", content: aiResponse }]);
+    setIsTyping(false);
   };
 
   return (
@@ -260,6 +249,15 @@ function AIAdvisor() {
                 </div>
               </div>
             ))}
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="max-w-xs px-4 py-2 rounded-lg text-sm bg-muted text-muted-foreground border border-border flex gap-1 items-center">
+                  <div className="w-2 h-2 rounded-full bg-current animate-bounce" />
+                  <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.2s]" />
+                  <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.4s]" />
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -271,7 +269,7 @@ function AIAdvisor() {
               onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
               className="text-sm"
             />
-            <Button onClick={handleSendMessage} size="sm" className="gap-2">
+            <Button onClick={handleSendMessage} size="sm" className="gap-2" disabled={isTyping}>
               <Send className="h-4 w-4" /> Send
             </Button>
           </div>
