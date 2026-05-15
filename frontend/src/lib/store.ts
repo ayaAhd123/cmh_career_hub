@@ -4,7 +4,9 @@ import type {
   Candidate,
   ModuleScore,
   Promotion,
+  Promotion,
   Skills,
+  TimeRange,
 } from "./types";
 import { buildModules, emptySkills } from "./types";
 import { calcEndDate } from "./calc";
@@ -14,9 +16,17 @@ interface State {
   candidates: Candidate[];
   seeded: boolean;
 
+  globalTimeRange: TimeRange;
+  globalCustomStart: string;
+  globalCustomEnd: string;
+  setGlobalTimeRange: (range: TimeRange) => void;
+  setGlobalCustomStart: (date: string) => void;
+  setGlobalCustomEnd: (date: string) => void;
+  clearGlobalFilters: () => void;
+
   addPromotion: (data: { name: string; startDate: string }) => Promotion;
   updatePromotion: (id: string, patch: Partial<Promotion>) => void;
-  archivePromotion: (id: string) => void;
+  deletePromotion: (id: string) => void;
 
   addCandidate: (
     data: Omit<
@@ -62,6 +72,15 @@ export const useStore = create<State>()(
       candidates: [],
       seeded: false,
 
+      globalTimeRange: "all",
+      globalCustomStart: "",
+      globalCustomEnd: "",
+
+      setGlobalTimeRange: (range) => set({ globalTimeRange: range }),
+      setGlobalCustomStart: (date) => set({ globalCustomStart: date }),
+      setGlobalCustomEnd: (date) => set({ globalCustomEnd: date }),
+      clearGlobalFilters: () => set({ globalTimeRange: "all", globalCustomStart: "", globalCustomEnd: "" }),
+
       addPromotion: ({ name, startDate }) => {
         const id = generatePromotionId(get().promotions);
         const p: Promotion = {
@@ -91,6 +110,12 @@ export const useStore = create<State>()(
           promotions: s.promotions.map((p) =>
             p.id === id ? { ...p, archived: true, status: "Archived" } : p,
           ),
+        })),
+
+      deletePromotion: (id) =>
+        set((s) => ({
+          promotions: s.promotions.filter((p) => p.id !== id),
+          candidates: s.candidates.filter((c) => c.promotionId !== id),
         })),
 
       addCandidate: (data) => {

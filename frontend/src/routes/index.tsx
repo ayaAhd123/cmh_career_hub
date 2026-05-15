@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { GraduationCap, Users, TrendingUp, AlertTriangle, Plus, ArrowRight, Inbox, Search, Activity, PieChart as PieChartIcon, BarChart3, Star, Trophy } from "lucide-react";
+import { GraduationCap, Users, TrendingUp, AlertTriangle, Plus, ArrowRight, Inbox, Search, Activity, PieChart as PieChartIcon, BarChart3, Star, Trophy, Calendar, ChevronDown } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { KpiCard } from "@/components/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calcEndDate, formatDate, overallAverage, passRate, promotionProgress, promotionStatus, turnoverRate } from "@/lib/calc";
 import { toast } from "sonner";
-import { differenceInYears, isSameYear, isSameQuarter, isSameMonth } from "date-fns";
+import { 
+  isSameYear, isSameQuarter, isSameMonth, isToday, isYesterday, 
+  isThisWeek, isThisMonth, isThisYear, subWeeks, subMonths, subYears, isSameWeek
+} from "date-fns";
 import { AddPromotionDialog } from "@/components/add-promotion-dialog";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip,
@@ -95,35 +98,75 @@ function DashboardPage() {
   const promotions = useStore((s) => s.promotions);
   const candidates = useStore((s) => s.candidates);
 
-  type TimeRange = "all" | "year" | "quarter" | "month";
-  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const timeRange = useStore((s) => s.globalTimeRange);
+  const customStart = useStore((s) => s.globalCustomStart);
+  const customEnd = useStore((s) => s.globalCustomEnd);
+  const setTimeRange = useStore((s) => s.setGlobalTimeRange);
+  const setCustomStart = useStore((s) => s.setGlobalCustomStart);
+  const setCustomEnd = useStore((s) => s.setGlobalCustomEnd);
+  const clearFilters = useStore((s) => s.clearGlobalFilters);
   const [chartMode, setChartMode] = useState<"volume" | "performance">("volume");
+
+  const timeRangeLabels: Record<TimeRange, string> = {
+    all: "All Time", today: "Today", yesterday: "Yesterday",
+    current_week: "Current Week", last_week: "Last Week",
+    current_month: "Current Month", last_month: "Last Month",
+    current_year: "Current Year", last_year: "Last Year",
+    custom: "Custom Range"
+  };
+
+  const handleStartChange = (val: string) => {
+    if (val && customEnd && new Date(val) > new Date(customEnd)) {
+      toast.error("Start date must be before the end date");
+      return;
+    }
+    setCustomStart(val);
+  };
+
+  const handleEndChange = (val: string) => {
+    if (val && customStart && new Date(customStart) > new Date(val)) {
+      toast.error("End date must be after the start date");
+      return;
+    }
+    setCustomEnd(val);
+  };
 
   const { filteredPromosForStats, filteredCandsForStats } = useMemo(() => {
     const today = new Date();
     
+    const checkDate = (dateStr: string) => {
+      if (timeRange === "all") return true;
+      const d = new Date(dateStr);
+      switch (timeRange) {
+        case "today": return isToday(d);
+        case "yesterday": return isYesterday(d);
+        case "current_week": return isThisWeek(d, { weekStartsOn: 1 });
+        case "last_week": return isSameWeek(d, subWeeks(today, 1), { weekStartsOn: 1 });
+        case "current_month": return isThisMonth(d);
+        case "last_month": return isSameMonth(d, subMonths(today, 1));
+        case "current_year": return isThisYear(d);
+        case "last_year": return isSameYear(d, subYears(today, 1));
+        case "custom": {
+          if (customStart && d < new Date(customStart)) return false;
+          if (customEnd && d > new Date(customEnd)) return false;
+          return true;
+        }
+        default: return true;
+      }
+    };
+    
     const p = promotions.filter(promo => {
       if (promo.archived) return false;
-      if (timeRange === "all") return true;
-      const d = new Date(promo.startDate);
-      if (timeRange === "year") return isSameYear(d, today);
-      if (timeRange === "quarter") return isSameQuarter(d, today);
-      if (timeRange === "month") return isSameMonth(d, today);
-      return true;
+      return checkDate(promo.startDate);
     });
 
     const c = candidates.filter(cand => {
       if (cand.archived) return false;
-      if (timeRange === "all") return true;
-      const d = new Date(cand.recruitmentDate);
-      if (timeRange === "year") return isSameYear(d, today);
-      if (timeRange === "quarter") return isSameQuarter(d, today);
-      if (timeRange === "month") return isSameMonth(d, today);
-      return true;
+      return checkDate(cand.recruitmentDate);
     });
 
     return { filteredPromosForStats: p, filteredCandsForStats: c };
-  }, [promotions, candidates, timeRange]);
+  }, [promotions, candidates, timeRange, customStart, customEnd]);
 
   const kpis = useMemo(() => {
     const active = filteredCandsForStats.filter((c) => c.status === "Active");
@@ -168,12 +211,10 @@ function DashboardPage() {
 
   // Age bucket bar data
   const ageData = useMemo(() => {
-    const today = new Date();
     const map: Record<string, { count: number, sum: number }> = { "18-24": { count: 0, sum: 0 }, "25-30": { count: 0, sum: 0 }, "31-35": { count: 0, sum: 0 }, "36+": { count: 0, sum: 0 } };
     filteredCandsForStats.forEach((c) => {
-      const bd = (c as any).birthDate;
-      if (!bd) return;
-      const age = differenceInYears(today, new Date(bd));
+      const age = c.age;
+      if (typeof age !== 'number') return;
       const score = overallAverage(c);
       if (age < 25) { map["18-24"].count++; map["18-24"].sum += score; }
       else if (age < 31) { map["25-30"].count++; map["25-30"].sum += score; }
@@ -229,18 +270,40 @@ function DashboardPage() {
             Overview of all training cohorts and candidates.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
+          {timeRange !== 'all' && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground hover:text-foreground shrink-0">
+              Clear
+            </Button>
+          )}
+
           <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
             <SelectTrigger className="w-[160px] bg-background">
               <SelectValue placeholder="Time Range" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="year">This Year</SelectItem>
-              <SelectItem value="quarter">This Quarter</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="yesterday">Yesterday</SelectItem>
+              <SelectItem value="current_week">Current Week</SelectItem>
+              <SelectItem value="last_week">Last Week</SelectItem>
+              <SelectItem value="current_month">Current Month</SelectItem>
+              <SelectItem value="last_month">Last Month</SelectItem>
+              <SelectItem value="current_year">Current Year</SelectItem>
+              <SelectItem value="last_year">Last Year</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
             </SelectContent>
           </Select>
+          
+          {timeRange === 'custom' && (
+            <div className="flex items-center gap-2">
+              <Input type="date" className="w-auto h-10" value={customStart} onChange={e => handleStartChange(e.target.value)} />
+              <span className="text-muted-foreground font-medium">-</span>
+              <Input type="date" className="w-auto h-10" value={customEnd} onChange={e => handleEndChange(e.target.value)} />
+            </div>
+          )}
+
+
           <AddPromotionDialog />
         </div>
       </div>
