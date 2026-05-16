@@ -25,6 +25,8 @@ import {
   ArrowRight,
   Search,
   X,
+  Mars,
+  Venus,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Label as RechartsLabel
@@ -505,8 +507,13 @@ function PromotionDetail() {
                       const a = overallAverage(c);
                       return (
                         <tr key={c.id} className="border-b hover:bg-muted/30">
-                          <td className="py-2 px-3 font-medium">
+                          <td className="py-2 px-3 font-medium flex items-center gap-1.5">
                             {c.firstName} {c.lastName}
+                            {c.gender === "Homme" ? (
+                              <Mars className="h-3.5 w-3.5 text-blue-500" />
+                            ) : (
+                              <Venus className="h-3.5 w-3.5 text-pink-500" />
+                            )}
                           </td>
                           <td className="py-2 px-3 text-muted-foreground text-xs">{c.email}</td>
                           <td className="py-2 px-3 text-xs">{c.educationLevel}</td>
