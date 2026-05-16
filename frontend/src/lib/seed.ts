@@ -34,14 +34,18 @@ export const seedSampleData = () => {
     { id: p3.id, start: p3.startDate, count: 5 },
   ];
 
+  const maleFirstNames = ["Karim", "Mehdi", "Omar"];
+  const femaleFirstNames = ["Yasmine", "Sofia", "Lina", "Aya"];
+  const lastNames = ["El Amrani", "Benali", "Tazi", "Bennani", "Cherkaoui", "Idrissi"];
   const genders = ["Homme", "Femme"] as const;
 
   promos.forEach((promo, idx) => {
     for (let i = 0; i < promo.count; i++) {
-      const fn = rand(firstNames);
+      const isMale = Math.random() > 0.5;
+      const fn = isMale ? rand(maleFirstNames) : rand(femaleFirstNames);
       const ln = rand(lastNames);
       const email = `${fn.toLowerCase()}.${ln.toLowerCase()}${i}@cmh.ma`;
-      const gender = rand(genders);
+      const gender = isMale ? "Homme" : "Femme";
       const age = Math.floor(Math.random() * 15) + 20; // 20 to 34
 
       const res = s.addCandidate({

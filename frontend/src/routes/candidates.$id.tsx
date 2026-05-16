@@ -10,7 +10,7 @@ import { CategoryBadge, StatusBadge } from "@/components/badges";
 import {
   categoryFor, disciplineAvg, formatDate, overallAverage, skillsAvg, testsAvg, workAvg,
 } from "@/lib/calc";
-import { ArrowLeft, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Mars, Trash2, Venus } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -86,7 +86,17 @@ function CandidateDetail() {
             )}
           </div>
           <div className="flex-1 min-w-[200px]">
-            <h1 className="text-2xl font-bold">{candidate.firstName} {candidate.lastName}</h1>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              {candidate.firstName} {candidate.lastName}
+              <span className="text-muted-foreground text-lg font-normal flex items-center gap-1.5 ml-1">
+                • {candidate.age} ans
+                {candidate.gender === "Homme" ? (
+                  <Mars className="h-5 w-5 text-blue-500" />
+                ) : (
+                  <Venus className="h-5 w-5 text-pink-500" />
+                )}
+              </span>
+            </h1>
             <p className="text-sm text-muted-foreground">{candidate.email}</p>
             {promotion && (
               <p className="text-xs text-muted-foreground mt-1">
@@ -159,6 +169,20 @@ function CandidateDetail() {
             <CardContent className="p-6 grid gap-3 sm:grid-cols-2 text-sm">
               <Field label="Email" value={candidate.email} />
               <Field label="Phone" value={candidate.phone} />
+              <Field label="Age" value={`${candidate.age} ans`} />
+              <Field 
+                label="Gender" 
+                value={
+                  <div className="flex items-center gap-2">
+                    {candidate.gender}
+                    {candidate.gender === "Homme" ? (
+                      <Mars className="h-4 w-4 text-blue-500" />
+                    ) : (
+                      <Venus className="h-4 w-4 text-pink-500" />
+                    )}
+                  </div>
+                } 
+              />
               <Field label="Recruitment Date" value={formatDate(candidate.recruitmentDate)} />
               <Field label="Education" value={candidate.educationLevel} />
               <Field label="Diploma" value={candidate.diplomaName} />
@@ -315,7 +339,7 @@ function CandidateDetail() {
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
