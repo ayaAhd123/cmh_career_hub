@@ -27,7 +27,7 @@ const items = [
   { title: "All Candidates", url: "/candidates", icon: Users },
   { title: "Graduates", url: "/graduates", icon: Award },
   { title: "Reports & Exports", url: "/reports", icon: FileText },
-  { title: "AI Advisor", url: "/ai-advisor", icon: Sparkles, soon: true },
+  { title: "AI Advisor", url: "/ai-advisor", icon: Sparkles },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
