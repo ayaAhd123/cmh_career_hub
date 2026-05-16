@@ -6,69 +6,399 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategoryBadge, StatusBadge } from "@/components/badges";
 import { categoryFor, overallAverage } from "@/lib/calc";
-import { ArrowRight, Mars, Venus } from "lucide-react";
+import {
+  ArrowRight, Search, X, Download, ChevronDown, Filter,
+  FileText, FileCode, Sheet
+} from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuRadioGroup, DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
+import type { CandidateStatus, EducationLevel, Gender } from "@/lib/types";
 
 export const Route = createFileRoute("/candidates/")({
   head: () => ({ meta: [{ title: "All Candidates — CareerHub" }] }),
   component: AllCandidates,
 });
 
+const STATUS_OPTIONS: CandidateStatus[] = ["Active", "Graduated", "Dismissed", "Terminated"];
+const GENDER_OPTIONS: Gender[] = ["Homme", "Femme"];
+const EDU_OPTIONS: EducationLevel[] = ["Bac+2", "Bac+3", "Bac+5", "Bac+8"];
+const SORT_OPTIONS = [
+  { value: "avg_desc", label: "Best Average" },
+  { value: "avg_asc", label: "Worst Average" },
+  { value: "name_asc", label: "Name A→Z" },
+  { value: "name_desc", label: "Name Z→A" },
+  { value: "date_desc", label: "Newest" },
+  { value: "date_asc", label: "Oldest" },
+];
+
 function AllCandidates() {
   const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
-  const candidates = useMemo(() => allCandidates.filter((c) => !c.archived), [allCandidates]);
+
   const [q, setQ] = useState("");
-  const filtered = candidates.filter(
-    (c) =>
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(q.toLowerCase()) ||
-      c.email.toLowerCase().includes(q.toLowerCase()),
-  ).sort((a, b) => overallAverage(b) - overallAverage(a));
+  const [statusFilter, setStatusFilter] = useState<"All" | CandidateStatus>("All");
+  const [genderFilter, setGenderFilter] = useState<"All" | Gender>("All");
+  const [eduFilter, setEduFilter] = useState<"All" | EducationLevel>("All");
+  const [promoFilter, setPromoFilter] = useState<"All" | string>("All");
+  const [sortBy, setSortBy] = useState("avg_desc");
+
+  const activePromotions = useMemo(() => promotions.filter((p) => !p.archived), [promotions]);
+
+  const filtered = useMemo(() => {
+    let list = allCandidates.filter((c) => !c.archived);
+
+    if (q.trim()) {
+      const lower = q.toLowerCase();
+      list = list.filter(
+        (c) =>
+          `${c.firstName} ${c.lastName}`.toLowerCase().includes(lower) ||
+          c.email.toLowerCase().includes(lower) ||
+          c.phone?.toLowerCase().includes(lower)
+      );
+    }
+    if (statusFilter !== "All") list = list.filter((c) => c.status === statusFilter);
+    if (genderFilter !== "All") list = list.filter((c) => c.gender === genderFilter);
+    if (eduFilter !== "All") list = list.filter((c) => c.educationLevel === eduFilter);
+    if (promoFilter !== "All") list = list.filter((c) => c.promotionId === promoFilter);
+
+    list = [...list].sort((a, b) => {
+      switch (sortBy) {
+        case "avg_asc": return overallAverage(a) - overallAverage(b);
+        case "name_asc": return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+        case "name_desc": return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`);
+        case "date_asc": return new Date(a.recruitmentDate).getTime() - new Date(b.recruitmentDate).getTime();
+        case "date_desc": return new Date(b.recruitmentDate).getTime() - new Date(a.recruitmentDate).getTime();
+        default: return overallAverage(b) - overallAverage(a);
+      }
+    });
+
+    return list;
+  }, [allCandidates, q, statusFilter, genderFilter, eduFilter, promoFilter, sortBy]);
+
+  const hasFilters = q || statusFilter !== "All" || genderFilter !== "All" || eduFilter !== "All" || promoFilter !== "All";
+
+  const clearFilters = () => {
+    setQ(""); setStatusFilter("All"); setGenderFilter("All");
+    setEduFilter("All"); setPromoFilter("All"); setSortBy("avg_desc");
+  };
+
+  // ── Export helpers ────────────────────────────────────────────────
+  const exportCSV = () => {
+    const headers = ["First Name", "Last Name", "Email", "Phone", "Gender", "Age", "Education", "Promotion", "Status", "Avg Score", "Category", "Recruitment Date"];
+    const rows = filtered.map((c) => {
+      const avg = overallAverage(c);
+      const promo = promotions.find((p) => p.id === c.promotionId)?.name ?? "";
+      return [
+        c.firstName, c.lastName, c.email, c.phone, c.gender, c.age,
+        c.educationLevel, promo, c.status, avg.toFixed(2), categoryFor(avg), c.recruitmentDate
+      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    });
+    const csv = [headers.join(","), ...rows].join("\n");
+    triggerDownload(new Blob([csv], { type: "text/csv" }), "candidates.csv");
+  };
+
+  const exportJSON = () => {
+    const data = filtered.map((c) => {
+      const avg = overallAverage(c);
+      const promo = promotions.find((p) => p.id === c.promotionId)?.name ?? "";
+      return { ...c, promotionName: promo, avgScore: avg, category: categoryFor(avg) };
+    });
+    triggerDownload(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), "candidates.json");
+  };
+
+  const exportHTML = () => {
+    const rows = filtered.map((c) => {
+      const avg = overallAverage(c);
+      const promo = promotions.find((p) => p.id === c.promotionId)?.name ?? "—";
+      return `<tr>
+        <td>${c.firstName} ${c.lastName}</td>
+        <td>${c.email}</td>
+        <td>${c.phone ?? ""}</td>
+        <td>${c.gender}</td>
+        <td>${c.age ?? ""}</td>
+        <td>${c.educationLevel}</td>
+        <td>${promo}</td>
+        <td>${c.status}</td>
+        <td>${avg.toFixed(2)}</td>
+        <td>${categoryFor(avg)}</td>
+        <td>${c.recruitmentDate}</td>
+      </tr>`;
+    }).join("\n");
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>All Candidates — CareerHub</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+    h1 { font-size: 22px; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f3f4f6; text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; }
+    td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
+    tr:last-child td { border-bottom: none; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <h1>All Candidates (${filtered.length})</h1>
+  <p style="color:#6b7280;font-size:12px;margin-bottom:12px;">Exported on ${new Date().toLocaleDateString()}</p>
+  <table>
+    <thead><tr>
+      <th>Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Age</th>
+      <th>Education</th><th>Promotion</th><th>Status</th><th>Avg</th><th>Category</th><th>Date</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</body>
+</html>`;
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 300);
+    }
+  };
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Sort";
+
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">All Candidates</h1>
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">All Candidates</h1>
+          <p className="text-muted-foreground mt-1">
+            {filtered.length} candidate{filtered.length !== 1 ? "s" : ""} found
+          </p>
+        </div>
+
+        {/* Export */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Download className="h-4 w-4" />
+              Export
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Export {filtered.length} candidates</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={exportCSV}>
+              <Sheet className="h-4 w-4 text-emerald-600" />
+              Export as CSV (Excel)
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={exportJSON}>
+              <FileCode className="h-4 w-4 text-blue-600" />
+              Export as JSON
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={exportHTML}>
+              <FileText className="h-4 w-4 text-rose-600" />
+              Export / Print as PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Filters bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="candidates-search"
+            placeholder="Search name, email, phone…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="pl-9 pr-8 bg-background"
+          />
+          {q && (
+            <Button
+              variant="ghost" size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+              onClick={() => setQ("")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Status filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              <Filter className="h-3.5 w-3.5" />
+              {statusFilter === "All" ? "Status" : statusFilter}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+              <DropdownMenuRadioItem value="All">All Statuses</DropdownMenuRadioItem>
+              {STATUS_OPTIONS.map((s) => (
+                <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Gender filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              {genderFilter === "All" ? "Gender" : genderFilter}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={genderFilter} onValueChange={(v) => setGenderFilter(v as any)}>
+              <DropdownMenuRadioItem value="All">All Genders</DropdownMenuRadioItem>
+              {GENDER_OPTIONS.map((g) => (
+                <DropdownMenuRadioItem key={g} value={g}>{g}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Education filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              {eduFilter === "All" ? "Education" : eduFilter}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={eduFilter} onValueChange={(v) => setEduFilter(v as any)}>
+              <DropdownMenuRadioItem value="All">All Levels</DropdownMenuRadioItem>
+              {EDU_OPTIONS.map((e) => (
+                <DropdownMenuRadioItem key={e} value={e}>{e}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Promotion filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background max-w-[180px]">
+              <span className="truncate">
+                {promoFilter === "All" ? "Promotion" : (promotions.find((p) => p.id === promoFilter)?.name ?? "Promotion")}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="max-h-60 overflow-y-auto">
+            <DropdownMenuRadioGroup value={promoFilter} onValueChange={(v) => setPromoFilter(v)}>
+              <DropdownMenuRadioItem value="All">All Promotions</DropdownMenuRadioItem>
+              {activePromotions.map((p) => (
+                <DropdownMenuRadioItem key={p.id} value={p.id}>{p.name}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Sort */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              {sortLabel}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup value={sortBy} onValueChange={setSortBy}>
+              {SORT_OPTIONS.map((o) => (
+                <DropdownMenuRadioItem key={o.value} value={o.value}>{o.label}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Clear */}
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5 mr-1.5" />
+            Clear
+          </Button>
+        )}
+      </div>
+
+      {/* Table */}
       <Card>
-        <CardHeader>
-          <div className="flex justify-between gap-3 flex-wrap">
-            <CardTitle>{filtered.length} candidates</CardTitle>
-            <Input placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} className="w-64" />
-          </div>
+        <CardHeader className="pb-0">
+          <CardTitle className="text-base font-semibold">
+            {filtered.length} candidate{filtered.length !== 1 ? "s" : ""}
+            {hasFilters && <span className="text-muted-foreground font-normal text-sm ml-1">(filtered)</span>}
+          </CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b text-left text-xs uppercase text-muted-foreground">
-              <th className="py-2 px-3">Name</th><th className="py-2 px-3">Email</th>
-              <th className="py-2 px-3">Promotion</th><th className="py-2 px-3">Avg</th>
-              <th className="py-2 px-3">Category</th><th className="py-2 px-3">Status</th><th></th>
-            </tr></thead>
-            <tbody>
-              {filtered.map((c) => {
-                const a = overallAverage(c);
-                const promo = promotions.find((p) => p.id === c.promotionId);
-                return (
-                  <tr key={c.id} className="border-b hover:bg-muted/30">
-                    <td className="py-2 px-3 font-medium flex items-center gap-1.5">
-                      {c.firstName} {c.lastName}
-                      {c.gender === "Homme" ? (
-                        <Mars className="h-3.5 w-3.5 text-blue-500" />
-                      ) : (
-                        <Venus className="h-3.5 w-3.5 text-pink-500" />
-                      )}
-                    </td>
-                    <td className="py-2 px-3 text-muted-foreground text-xs">{c.email}</td>
-                    <td className="py-2 px-3 text-xs">{promo?.name ?? "—"}</td>
-                    <td className="py-2 px-3 font-semibold">{a.toFixed(2)}</td>
-                    <td className="py-2 px-3"><CategoryBadge category={categoryFor(a)} /></td>
-                    <td className="py-2 px-3"><StatusBadge status={c.status} /></td>
-                    <td className="py-2 px-3">
-                      <Button asChild size="sm" variant="ghost">
-                        <Link to="/candidates/$id" params={{ id: c.id }}><ArrowRight className="h-4 w-4" /></Link>
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <CardContent className="overflow-x-auto pt-4">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+              <p className="font-medium">No candidates found</p>
+              <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
+              {hasFilters && (
+                <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>Clear filters</Button>
+              )}
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                  <th className="py-2.5 px-3">Name</th>
+                  <th className="py-2.5 px-3">Email</th>
+                  <th className="py-2.5 px-3">Gender</th>
+                  <th className="py-2.5 px-3">Education</th>
+                  <th className="py-2.5 px-3">Promotion</th>
+                  <th className="py-2.5 px-3">Avg</th>
+                  <th className="py-2.5 px-3">Category</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => {
+                  const a = overallAverage(c);
+                  const promo = promotions.find((p) => p.id === c.promotionId);
+                  return (
+                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="py-2.5 px-3 font-medium whitespace-nowrap">
+                        {c.firstName} {c.lastName}
+                      </td>
+                      <td className="py-2.5 px-3 text-muted-foreground text-xs">{c.email}</td>
+                      <td className="py-2.5 px-3 text-xs text-muted-foreground">{c.gender}</td>
+                      <td className="py-2.5 px-3 text-xs">{c.educationLevel}</td>
+                      <td className="py-2.5 px-3 text-xs">{promo?.name ?? "—"}</td>
+                      <td className="py-2.5 px-3 font-semibold tabular-nums">{a.toFixed(2)}</td>
+                      <td className="py-2.5 px-3"><CategoryBadge category={categoryFor(a)} /></td>
+                      <td className="py-2.5 px-3"><StatusBadge status={c.status} /></td>
+                      <td className="py-2.5 px-3">
+                        <Button asChild size="sm" variant="ghost">
+                          <Link to="/candidates/$id" params={{ id: c.id }}>
+                            <ArrowRight className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
     </div>
