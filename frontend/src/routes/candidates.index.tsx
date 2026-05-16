@@ -140,7 +140,6 @@ function AllCandidates() {
     th { background: #f3f4f6; text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; }
     td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
     tr:last-child td { border-bottom: none; }
-    @media print { body { padding: 0; } }
   </style>
 </head>
 <body>
@@ -155,13 +154,7 @@ function AllCandidates() {
   </table>
 </body>
 </html>`;
-    const win = window.open("", "_blank");
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      win.focus();
-      setTimeout(() => win.print(), 300);
-    }
+    triggerDownload(new Blob([html], { type: "text/html" }), "candidates.html");
   };
 
   function triggerDownload(blob: Blob, filename: string) {
@@ -206,7 +199,7 @@ function AllCandidates() {
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={exportHTML}>
               <FileText className="h-4 w-4 text-rose-600" />
-              Export / Print as PDF
+              Export as HTML
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
