@@ -88,14 +88,6 @@ function CandidateDetail() {
           <div className="flex-1 min-w-[200px]">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               {candidate.firstName} {candidate.lastName}
-              <span className="text-muted-foreground text-lg font-normal flex items-center gap-1.5 ml-1">
-                • {candidate.age} ans
-                {candidate.gender === "Homme" ? (
-                  <Mars className="h-5 w-5 text-blue-500" />
-                ) : (
-                  <Venus className="h-5 w-5 text-pink-500" />
-                )}
-              </span>
             </h1>
             <p className="text-sm text-muted-foreground">{candidate.email}</p>
             {promotion && (
@@ -111,7 +103,7 @@ function CandidateDetail() {
           <div className="text-center">
             <p className="text-xs uppercase text-muted-foreground">Overall</p>
             <p className="text-4xl font-bold text-primary">{avg.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">/ 20</p>
+            <p className="text-xs text-muted-foreground">/ 5</p>
           </div>
           <div className="flex flex-col gap-2">
             <DropdownMenu>
