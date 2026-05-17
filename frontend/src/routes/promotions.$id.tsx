@@ -484,6 +484,9 @@ function PromotionDetail() {
                       <SelectItem value="Terminated">Terminated</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Button variant="outline" className="bg-muted/40" onClick={() => exportPromotionExcel(promotion, candidates)}>
+                    <Download className="mr-2 h-4 w-4" /> Export Excel
+                  </Button>
                   <AddCandidateDialog promotionId={promotion.id} />
                 </div>
               </div>
@@ -509,11 +512,6 @@ function PromotionDetail() {
                         <tr key={c.id} className="border-b hover:bg-muted/30">
                           <td className="py-2 px-3 font-medium flex items-center gap-1.5">
                             {c.firstName} {c.lastName}
-                            {c.gender === "Homme" ? (
-                              <Mars className="h-3.5 w-3.5 text-blue-500" />
-                            ) : (
-                              <Venus className="h-3.5 w-3.5 text-pink-500" />
-                            )}
                           </td>
                           <td className="py-2 px-3 text-muted-foreground text-xs">{c.email}</td>
                           <td className="py-2 px-3 text-xs">{c.educationLevel}</td>

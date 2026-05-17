@@ -117,7 +117,7 @@ function SettingsPage() {
           <p><span className="text-muted-foreground">Product:</span> CareerHub v1.0</p>
           <p><span className="text-muted-foreground">Default duration:</span> 5 weeks · 25 working days (locked)</p>
           <p><span className="text-muted-foreground">Modules per promotion:</span> 5 (standard)</p>
-          <p><span className="text-muted-foreground">Passing threshold:</span> 10 / 20</p>
+          <p><span className="text-muted-foreground">Passing threshold:</span> 2.5 / 5</p>
         </CardContent>
       </Card>
 

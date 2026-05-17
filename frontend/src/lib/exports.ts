@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import type { Candidate, Promotion } from "./types";
 import {
   categoryFor, disciplineAvg, formatDate, overallAverage, passRate, skillsAvg, testsAvg, turnoverRate, workAvg,
@@ -90,7 +90,7 @@ export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
   doc.setTextColor(30);
   doc.text(`Skills Average: ${skillsAvg(c.skills).toFixed(2)}/5`, 14, y);
   doc.text(`Modules Average: ${testsAvg(c.modules).toFixed(2)}/20`, 14, y + 7);
-  doc.text(`Overall Average: ${avg.toFixed(2)}/20`, 14, y + 14);
+  doc.text(`Overall Average: ${avg.toFixed(2)}/5`, 14, y + 14);
   doc.text(`Category: ${categoryFor(avg)}`, 14, y + 21);
   doc.text(`Recommendation: ${avg >= 10 ? "PASS" : "FAIL"}`, 14, y + 28);
 
@@ -110,7 +110,7 @@ export const exportCandidateExcel = (c: Candidate, promo?: Promotion) => {
     ["Status", c.status],
     ["Skills Average", `${skillsAvg(c.skills).toFixed(2)}/5`],
     ["Modules Average", `${testsAvg(c.modules).toFixed(2)}/20`],
-    ["Overall Average", `${overallAverage(c).toFixed(2)}/20`],
+    ["Overall Average", `${overallAverage(c).toFixed(2)}/5`],
     ["Category", categoryFor(overallAverage(c))],
   ]);
   XLSX.utils.book_append_sheet(wb, info, "Info");
@@ -130,7 +130,7 @@ th{background:#F8FAFC}.badge{display:inline-block;padding:4px 12px;border-radius
 .excellent{background:#10B981}.good{background:#3B82F6}.passable{background:#F59E0B}.critical{background:#EF4444}</style></head><body>
 <h1>CareerHub — Candidate Report</h1><p style="color:#64748B">by CMH Cloud Marketing Hub</p>
 <h2>${c.firstName} ${c.lastName}</h2>
-<p><strong>Overall Average:</strong> ${avg.toFixed(2)}/20 — <span class="badge ${categoryFor(avg).toLowerCase()}">${categoryFor(avg)}</span></p>
+<p><strong>Overall Average:</strong> ${avg.toFixed(2)}/5 — <span class="badge ${categoryFor(avg).toLowerCase()}">${categoryFor(avg)}</span></p>
 <table><tr><th>Email</th><td>${c.email}</td></tr><tr><th>Phone</th><td>${c.phone}</td></tr>
 <tr><th>Education</th><td>${c.educationLevel} — ${c.diplomaName}</td></tr>
 <tr><th>Promotion</th><td>${promo ? promo.id + " · " + promo.name : "—"}</td></tr>
@@ -179,7 +179,7 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
   const y = (doc as any).lastAutoTable.finalY + 8;
   autoTable(doc, {
     startY: y,
-    head: [["Name", "Email", "Avg /20", "Category", "Status"]],
+    head: [["Name", "Email", "Avg /5", "Category", "Status"]],
     body: cands.map((c) => {
       const a = overallAverage(c);
       return [`${c.firstName} ${c.lastName}`, c.email, a.toFixed(2), categoryFor(a), c.status];
@@ -193,33 +193,104 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
 
 export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
   const wb = XLSX.utils.book_new();
-  const info = XLSX.utils.aoa_to_sheet([
+  const rows: any[][] = [
     ["CareerHub Promotion Report"],
     [],
-    ["ID", p.id],
+    ["Promotion ID", p.id],
     ["Name", p.name],
-    ["Start", p.startDate],
-    ["End", p.endDate],
+    ["Start Date", p.startDate],
+    ["End Date", p.endDate],
     ["Total Candidates", cands.length],
     ["Pass Rate", `${passRate(cands)}%`],
     ["Turnover Rate", `${turnoverRate(cands)}%`],
-  ]);
-  XLSX.utils.book_append_sheet(wb, info, "Summary");
-  const rows = cands.map((c) => {
+    [],
+    ["CANDIDATES LIST"],
+    [
+      "Name",
+      "Email",
+      "Phone",
+      "Education",
+      "Skills Avg /5",
+      "Modules Avg /20",
+      "Overall Avg /5",
+      "Category",
+      "Status",
+    ],
+  ];
+
+  cands.forEach((c) => {
     const a = overallAverage(c);
-    return {
-      Name: `${c.firstName} ${c.lastName}`,
-      Email: c.email,
-      Phone: c.phone,
-      Education: c.educationLevel,
-      "Skills Avg /5": skillsAvg(c.skills).toFixed(2),
-      "Modules Avg /20": testsAvg(c.modules).toFixed(2),
-      Overall: a.toFixed(2),
-      Category: categoryFor(a),
-      Status: c.status,
-    };
+    rows.push([
+      `${c.firstName} ${c.lastName}`,
+      c.email,
+      c.phone,
+      c.educationLevel,
+      skillsAvg(c.skills).toFixed(2),
+      testsAvg(c.modules).toFixed(2),
+      a.toFixed(2),
+      categoryFor(a),
+      c.status,
+    ]);
   });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Candidates");
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  
+  // Basic styling for all cells
+  for (const key in ws) {
+    if (key[0] === "!") continue;
+    ws[key].s = {
+      font: { name: "Arial", sz: 10 },
+      alignment: { vertical: "center", horizontal: "left" },
+      border: {
+        top: { style: "thin", color: { rgb: "E2E8F0" } },
+        bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+        left: { style: "thin", color: { rgb: "E2E8F0" } },
+        right: { style: "thin", color: { rgb: "E2E8F0" } },
+      },
+    };
+  }
+
+  // Specific styles
+  const titleStyle = { font: { name: "Arial", sz: 16, bold: true, color: { rgb: "0066CC" } }, alignment: { vertical: "center" } };
+  const sectionStyle = { font: { name: "Arial", sz: 12, bold: true }, fill: { fgColor: { rgb: "F8FAFC" } } };
+  const labelStyle = { font: { name: "Arial", sz: 10, bold: true }, fill: { fgColor: { rgb: "F1F5F9" } } };
+  const headerStyle = {
+    font: { name: "Arial", sz: 11, bold: true, color: { rgb: "FFFFFF" } },
+    fill: { fgColor: { rgb: "0066CC" } },
+    alignment: { vertical: "center", horizontal: "center" },
+    border: {
+      top: { style: "thin", color: { rgb: "0066CC" } },
+      bottom: { style: "thin", color: { rgb: "0066CC" } },
+      left: { style: "thin", color: { rgb: "0066CC" } },
+      right: { style: "thin", color: { rgb: "0066CC" } },
+    },
+  };
+
+  if (ws["A1"]) ws["A1"].s = titleStyle;
+  for (let r = 2; r <= 8; r++) {
+    const ref = XLSX.utils.encode_cell({ c: 0, r });
+    if (ws[ref]) ws[ref].s = { ...ws[ref].s, ...labelStyle };
+  }
+  if (ws["A11"]) ws["A11"].s = { ...ws["A11"].s, ...sectionStyle };
+
+  for (let c = 0; c < 9; c++) {
+    const ref = XLSX.utils.encode_cell({ c, r: 11 });
+    if (ws[ref]) ws[ref].s = headerStyle;
+  }
+
+  ws["!cols"] = [
+    { wch: 25 },
+    { wch: 30 },
+    { wch: 15 },
+    { wch: 20 },
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 15 },
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, "Report");
   XLSX.writeFile(wb, `${p.id}_promotion_report.xlsx`);
 };
 
