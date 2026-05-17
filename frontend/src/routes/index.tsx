@@ -29,12 +29,22 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip,
   ResponsiveContainer, Legend, Label as RechartsLabel, ComposedChart, Line
 } from "recharts";
+import type { TimeRange } from "@/lib/types";
 
 const GENDER_COLORS: Record<string, string> = {
   Male: "#6366f1", // Indigo
   Female: "#ec4899", // Pink
+  Homme: "#3b82f6", // Blue
+  Femme: "#ec4899", // Pink
   Other: "#f59e0b", // Amber
 };
+
+const EDU_COLORS = [
+  "#3b82f6", // Blue
+  "#10b981", // Emerald
+  "#8b5cf6", // Violet
+  "#f59e0b", // Amber
+];
 
 const STATUS_COLORS: Record<string, string> = {
   Active: "#3b82f6", // Blue
@@ -171,7 +181,7 @@ function DashboardPage() {
   const kpis = useMemo(() => {
     const active = filteredCandsForStats.filter((c) => c.status === "Active");
     
-    const withScores = filteredCandsForStats.filter(c => c.evaluations && c.evaluations.length > 0 || c.modules && c.modules.length > 0);
+    const withScores = filteredCandsForStats.filter(c => c.modules && c.modules.length > 0);
     const globalAvg = withScores.length > 0 
       ? withScores.reduce((a, c) => a + overallAverage(c), 0) / withScores.length 
       : 0;
@@ -349,19 +359,22 @@ function DashboardPage() {
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={eduData} barCategoryGap="30%">
                   <defs>
-                    <linearGradient id="eduGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#34d399" stopOpacity={1} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.8} />
-                    </linearGradient>
+                    {EDU_COLORS.map((color, i) => (
+                      <linearGradient id={`eduGradient${i + 1}`} x1="0" y1="0" x2="0" y2="1" key={i}>
+                        <stop offset="5%" stopColor={color} stopOpacity={1} />
+                        <stop offset="95%" stopColor={color} stopOpacity={0.7} />
+                      </linearGradient>
+                    ))}
                   </defs>
                   <XAxis dataKey="level" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis domain={chartMode === "performance" ? [0, 20] : ["auto", "auto"]} allowDecimals={chartMode === "performance"} tick={{ fontSize: 12 }} width={28} tickLine={false} axisLine={false} />
+                  <YAxis domain={chartMode === "performance" ? [0, 5] : ["auto", "auto"]} allowDecimals={chartMode === "performance"} tick={{ fontSize: 12 }} width={28} tickLine={false} axisLine={false} />
                   <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
                   <Bar dataKey={chartMode === "volume" ? "count" : "avg"} name={chartMode === "volume" ? "Candidates" : "Avg Score"} radius={[6, 6, 0, 0]}>
                     {eduData.map((entry, index) => {
-                      if (chartMode === "volume") return <Cell key={`cell-${index}`} fill="url(#eduGradient)" />;
+                      const color = `url(#eduGradient${index + 1})`;
+                      if (chartMode === "volume") return <Cell key={`cell-${index}`} fill={color} />;
                       const isMax = entry.avg === Math.max(...eduData.map(d => d.avg));
-                      return <Cell key={`cell-${index}`} fill={isMax ? "#f59e0b" : "url(#eduGradient)"} opacity={isMax ? 1 : 0.6} />;
+                      return <Cell key={`cell-${index}`} fill={color} opacity={isMax ? 1 : 0.4} />;
                     })}
                   </Bar>
                 </BarChart>
@@ -393,11 +406,12 @@ function DashboardPage() {
                     stroke="none"
                   >
                     {genderData.map((entry, index) => {
+                      const color = GENDER_COLORS[entry.name] ?? "#94a3b8";
                       if (chartMode === "volume") {
-                        return <Cell key={entry.name} fill={GENDER_COLORS[entry.name] ?? "#94a3b8"} />;
+                        return <Cell key={entry.name} fill={color} />;
                       } else {
                         const isMax = entry.avg === Math.max(...genderData.map(d => d.avg));
-                        return <Cell key={`cell-${index}`} fill={isMax ? "#f59e0b" : (GENDER_COLORS[entry.name] ?? "#94a3b8")} opacity={isMax ? 1 : 0.6} />;
+                        return <Cell key={`cell-${index}`} fill={color} opacity={isMax ? 1 : 0.4} />;
                       }
                     })}
                     <RechartsLabel
@@ -439,9 +453,10 @@ function DashboardPage() {
                   <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
                   <Bar dataKey={chartMode === "volume" ? "count" : "avg"} name={chartMode === "volume" ? "Candidates" : "Avg Score"} radius={[6, 6, 0, 0]}>
                     {ageData.map((entry, index) => {
-                      if (chartMode === "volume") return <Cell key={`cell-${index}`} fill={`url(#ageGradient${index + 1})`} />;
+                      const color = `url(#ageGradient${index + 1})`;
+                      if (chartMode === "volume") return <Cell key={`cell-${index}`} fill={color} />;
                       const isMax = entry.avg === Math.max(...ageData.map(d => d.avg));
-                      return <Cell key={`cell-${index}`} fill={isMax ? "#f59e0b" : `url(#ageGradient${index + 1})`} opacity={isMax ? 1 : 0.6} />;
+                      return <Cell key={`cell-${index}`} fill={color} opacity={isMax ? 1 : 0.4} />;
                     })}
                   </Bar>
                 </BarChart>

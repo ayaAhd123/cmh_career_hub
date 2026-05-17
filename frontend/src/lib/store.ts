@@ -4,7 +4,6 @@ import type {
   Candidate,
   ModuleScore,
   Promotion,
-  Promotion,
   Skills,
   TimeRange,
 } from "./types";
@@ -26,6 +25,7 @@ interface State {
 
   addPromotion: (data: { name: string; startDate: string }) => Promotion;
   updatePromotion: (id: string, patch: Partial<Promotion>) => void;
+  archivePromotion: (id: string) => void;
   deletePromotion: (id: string) => void;
 
   addCandidate: (
