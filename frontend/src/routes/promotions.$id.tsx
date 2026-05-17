@@ -60,6 +60,11 @@ const COLORS: Record<string, string> = {
   Critical: "hsl(15 75% 55%)",
 };
 
+const GENDER_COLORS: Record<string, string> = {
+  Homme: "hsl(220 70% 50%)",
+  Femme: "hsl(340 75% 55%)",
+};
+
 const CHART_COLORS = [
   "hsl(220 70% 50%)",
   "hsl(160 60% 45%)",
@@ -386,7 +391,7 @@ function PromotionDetail() {
                       <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
                       <Bar dataKey="avg" radius={[6, 6, 0, 0]}>
                         {genderDist.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          <Cell key={`cell-${index}`} fill={GENDER_COLORS[entry.name] || CHART_COLORS[index % CHART_COLORS.length]} />
                         ))}
                       </Bar>
                     </BarChart>
