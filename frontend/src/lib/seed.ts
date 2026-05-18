@@ -23,15 +23,17 @@ export const seedSampleData = () => {
 
   const today = new Date();
   
-  // Create 3 simple promotions
+  // Create 3 simple promotions, including reminder-friendly dates
   const p1 = s.addPromotion({ name: "Web Dev Bootcamp 2024", startDate: format(subDays(today, 60), "yyyy-MM-dd") });
-  const p2 = s.addPromotion({ name: "Data Analysis Q3", startDate: format(subDays(today, 15), "yyyy-MM-dd") });
-  const p3 = s.addPromotion({ name: "UI/UX Masterclass", startDate: format(addDays(today, 30), "yyyy-MM-dd") });
+  const p2 = s.addPromotion({ name: "Data Analysis Q3", startDate: format(subDays(today, 30), "yyyy-MM-dd") });
+  const p3 = s.addPromotion({ name: "UI/UX Masterclass", startDate: format(addDays(today, 4), "yyyy-MM-dd") });
+  const p4 = s.addPromotion({ name: "Marketing Sprint", startDate: format(subDays(today, 20), "yyyy-MM-dd") });
 
   const promos = [
     { id: p1.id, start: p1.startDate, count: 8 },
-    { id: p2.id, start: p2.startDate, count: 6 },
+    { id: p2.id, start: p2.startDate, count: 4 },
     { id: p3.id, start: p3.startDate, count: 5 },
+    { id: p4.id, start: p4.startDate, count: 3 },
   ];
 
   const maleFirstNames = ["Karim", "Mehdi", "Omar"];

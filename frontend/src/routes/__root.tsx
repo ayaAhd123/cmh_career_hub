@@ -18,6 +18,7 @@ import { seedSampleData } from "@/lib/seed";
 import { useAuth } from "@/lib/auth";
 import { ProfileMenu } from "@/components/profile-menu";
 import { AiChatBubble } from "@/components/ai-chat-bubble";
+import { RemindersPopover } from "@/components/reminders-popover";
 
 function NotFoundComponent() {
   return (
@@ -146,6 +147,7 @@ function RootComponent() {
             <header className="h-14 border-b bg-card flex items-center px-4 gap-3 sticky top-0 z-30">
               <SidebarTrigger />
               <div className="flex-1" />
+              <RemindersPopover />
               <ProfileMenu />
             </header>
             <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto">

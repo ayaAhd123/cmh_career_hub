@@ -43,7 +43,7 @@ export function AiChatBubble() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-4 text-sm">
-                <p className="mb-3">👋 Hi! How can I help you today?</p>
+                <p className="mb-3">Hi! How can I help you today?</p>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {[
                     "Top education levels?",
