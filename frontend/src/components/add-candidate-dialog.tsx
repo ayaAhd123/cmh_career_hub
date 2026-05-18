@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import {
   Dialog,
@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,31 +21,70 @@ import {
 } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import type { EducationLevel } from "@/lib/types";
+import type { EducationLevel, Gender } from "@/lib/types";
 
 const phoneRe = /^\+?[\d\s().-]{8,20}$/;
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const initialForm = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "+212 ",
+  recruitmentDate: new Date().toISOString().slice(0, 10),
+  educationLevel: "" as EducationLevel | "",
+  gender: "Homme" as Gender,
+  age: 22,
+  diplomaName: "",
+  diplomaAverage: 12,
+  photo: "",
+};
+
 export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
   const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const add = useStore((s) => s.addCandidate);
 
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "+212 ",
-    recruitmentDate: new Date().toISOString().slice(0, 10),
-    educationLevel: "Bac+3" as EducationLevel,
-    gender: "Homme" as Gender,
-    age: 22,
-    diplomaName: "",
-    diplomaAverage: 12,
-    photo: "",
-  });
+  const [form, setForm] = useState(initialForm);
+
+  const isDirty = useMemo(
+    () =>
+      Object.keys(initialForm).some((key) =>
+        (form as Record<string, unknown>)[key] !== (initialForm as Record<string, unknown>)[key],
+      ),
+    [form],
+  );
+
+  const resetForm = () => setForm(initialForm);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      resetForm();
+      setOpen(true);
+      return;
+    }
+
+    if (isDirty) {
+      setConfirmOpen(true);
+      return;
+    }
+
+    setOpen(false);
+  };
+
+  const handleCancel = () => {
+    if (isDirty) {
+      setConfirmOpen(true);
+      return;
+    }
+
+    setOpen(false);
+    resetForm();
+  };
 
   const submit = () => {
     if (!form.firstName || !form.lastName) return toast.error("Name required");
+    if (!form.educationLevel) return toast.error("Education level required");
     if (!emailRe.test(form.email)) return toast.error("Invalid email");
     if (!phoneRe.test(form.phone)) return toast.error("Invalid phone");
     if (new Date(form.recruitmentDate) > new Date())
@@ -56,12 +96,7 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     if (!res.ok) return toast.error(res.error ?? "Failed");
     toast.success("Candidate added");
     setOpen(false);
-    setForm({
-      firstName: "", lastName: "", email: "", phone: "+212 ",
-      recruitmentDate: new Date().toISOString().slice(0, 10),
-      educationLevel: "Bac+3" as EducationLevel, gender: "Homme" as Gender,
-      age: 22, diplomaName: "", diplomaAverage: 12, photo: "",
-    });
+    resetForm();
   };
 
   return (
@@ -71,7 +106,7 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
           <Plus className="mr-2 h-4 w-4" /> Add Candidate
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent hideCloseButton className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Candidate</DialogTitle>
         </DialogHeader>
@@ -113,7 +148,7 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
           <div>
             <Label>Education Level *</Label>
             <Select value={form.educationLevel} onValueChange={(v) => setForm({ ...form, educationLevel: v as EducationLevel })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select education level" /></SelectTrigger>
               <SelectContent>
                 {(["Bac+2", "Bac+3", "Bac+5", "Bac+8"] as const).map((l) => (
                   <SelectItem key={l} value={l}>{l}</SelectItem>
@@ -130,15 +165,62 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
             <Input type="number" min={0} max={20} step={0.1} value={form.diplomaAverage} onChange={(e) => setForm({ ...form, diplomaAverage: parseFloat(e.target.value) || 0 })} />
           </div>
           <div className="sm:col-span-2">
-            <Label>Photo URL (optional)</Label>
-            <Input value={form.photo} onChange={(e) => setForm({ ...form, photo: e.target.value })} placeholder="https://..." />
+            <Label>Photo (optional)</Label>
+            <Input
+              type="file"
+              accept="image/*"
+              key={form.photo}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  if (typeof reader.result === "string") {
+                    setForm({ ...form, photo: reader.result });
+                  }
+                };
+                reader.readAsDataURL(file);
+              }}
+            />
+            {form.photo ? (
+              <div className="mt-2 max-h-56 overflow-auto rounded border border-slate-200 p-2">
+                <img
+                  src={form.photo}
+                  alt="Selected candidate photo"
+                  className="h-48 w-full max-w-xs rounded object-cover"
+                />
+              </div>
+            ) : null}
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button onClick={submit}>Add</Button>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have entered information for this candidate. If you cancel now, your data will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              onClick={() => {
+                setConfirmOpen(false);
+                setOpen(false);
+                resetForm();
+              }}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
