@@ -146,9 +146,6 @@ function RootComponent() {
             <header className="h-14 border-b bg-card flex items-center px-4 gap-3 sticky top-0 z-30">
               <SidebarTrigger />
               <div className="flex-1" />
-              <div className="text-xs text-muted-foreground hidden md:block mr-2">
-                CareerHub · v1.0
-              </div>
               <ProfileMenu />
             </header>
             <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto">
