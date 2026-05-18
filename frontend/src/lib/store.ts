@@ -120,7 +120,10 @@ export const useStore = create<State>()(
 
       addCandidate: (data) => {
         const exists = get().candidates.some(
-          (c) => c.email.toLowerCase() === data.email.toLowerCase() && !c.archived,
+          (c) =>
+            c.promotionId === data.promotionId &&
+            c.email.toLowerCase() === data.email.toLowerCase() &&
+            !c.archived,
         );
         if (exists) return { ok: false, error: "Email already exists" };
         const c = newCandidate(data);
