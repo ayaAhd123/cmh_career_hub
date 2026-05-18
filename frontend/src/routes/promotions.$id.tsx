@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddCandidateDialog } from "@/components/add-candidate-dialog";
+import { EditCandidateDialog } from "@/components/edit-candidate-dialog";
 import {
   exportPromotionPDF, exportPromotionExcel, exportPromotionCSV, exportPromotionHTML,
 } from "@/lib/exports";
@@ -66,6 +67,7 @@ const COLORS: Record<string, string> = {
 const GENDER_COLORS: Record<string, string> = {
   Homme: "hsl(220 70% 50%)",
   Femme: "hsl(340 75% 55%)",
+  "Not provided": "hsl(0 0% 60%)",
 };
 
 const CHART_COLORS = [
@@ -115,7 +117,10 @@ function PromotionDetail() {
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const editingCandidate = candidates.find((c) => c.id === editingCandidateId) ?? null;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,8 +164,8 @@ function PromotionDetail() {
           const rawFirstName = findVal("firstname", "first name", "prénom", "prenom", "name", "nom");
           const rawLastName = findVal("lastname", "last name", "nom", "family");
           
-          let firstName = rawFirstName ? String(rawFirstName).trim() : `Candidat ${index + 1}`;
-          let lastName = rawLastName ? String(rawLastName).trim() : "Importé";
+          let firstName = rawFirstName ? String(rawFirstName).trim() : "Not provided";
+          let lastName = rawLastName ? String(rawLastName).trim() : "Not provided";
 
           if (rawFirstName && !rawLastName && firstName.includes(" ")) {
             const parts = firstName.split(" ");
@@ -169,38 +174,44 @@ function PromotionDetail() {
           }
 
           const rawEmail = findVal("email", "e-mail", "mail", "courriel", "adresse");
-          const email = rawEmail ? String(rawEmail).trim() : `candidat_${Date.now()}_${index}@example.com`;
+          const email = rawEmail ? String(rawEmail).trim() : "Not provided";
 
           const rawPhone = findVal("phone", "téléphone", "telephone", "tel", "mobile", "gsm");
-          const phone = rawPhone ? String(rawPhone).trim() : "+212 600 000 000";
+          const phone = rawPhone ? String(rawPhone).trim() : "Not provided";
 
           const rawDate = findVal("recruitment date", "recruitmentdate", "date de recrutement", "date recrutement", "date");
-          const recruitmentDate = rawDate ? String(rawDate).trim() : new Date().toISOString().slice(0, 10);
+          const recruitmentDate = rawDate ? String(rawDate).trim() : "Not provided";
 
           const rawAge = findVal("age", "âge");
-          const age = rawAge ? parseInt(String(rawAge), 10) || 22 : 22;
+          const age = rawAge ? parseInt(String(rawAge), 10) || "Not provided" : "Not provided";
 
           const rawGender = findVal("gender", "sexe", "genre");
-          let gender: "Homme" | "Femme" = "Homme";
-          if (rawGender && String(rawGender).trim().toLowerCase().startsWith("f")) {
-            gender = "Femme";
+          let gender: any = "Not provided";
+          if (rawGender) {
+            const gStr = String(rawGender).trim().toLowerCase();
+            if (gStr.startsWith("f")) gender = "Femme";
+            else if (gStr.startsWith("h") || gStr.startsWith("m")) gender = "Homme";
+            else gender = String(rawGender).trim();
           }
 
           const rawEdu = findVal("education level", "education", "niveau d'étude", "niveau d'etude", "niveau", "etudes");
-          let educationLevel: "Bac+2" | "Bac+3" | "Bac+5" | "Bac+8" = "Bac+3";
-          const eduStr = rawEdu ? String(rawEdu).trim().toLowerCase() : "";
-          if (eduStr.includes("2")) educationLevel = "Bac+2";
-          else if (eduStr.includes("3")) educationLevel = "Bac+3";
-          else if (eduStr.includes("5")) educationLevel = "Bac+5";
-          else if (eduStr.includes("8")) educationLevel = "Bac+8";
+          let educationLevel: any = "Not provided";
+          if (rawEdu) {
+            const eduStr = String(rawEdu).trim().toLowerCase();
+            if (eduStr.includes("2")) educationLevel = "Bac+2";
+            else if (eduStr.includes("3")) educationLevel = "Bac+3";
+            else if (eduStr.includes("5")) educationLevel = "Bac+5";
+            else if (eduStr.includes("8")) educationLevel = "Bac+8";
+            else educationLevel = String(rawEdu).trim();
+          }
 
           const rawDiploma = findVal("diploma name", "diploma", "diplôme", "diplome", "specialite", "spécialité", "filiere", "filière");
-          const diplomaName = rawDiploma ? String(rawDiploma).trim() : "Diplôme Général";
+          const diplomaName = rawDiploma ? String(rawDiploma).trim() : "Not provided";
 
           const rawAvg = findVal("diploma average", "diploma avg", "moyenne diplome", "moyenne diplôme", "moyenne", "score", "note");
-          let diplomaAverage = rawAvg ? parseFloat(String(rawAvg).replace(",", ".")) : 12;
-          if (isNaN(diplomaAverage) || diplomaAverage < 0 || diplomaAverage > 20) {
-            diplomaAverage = 12;
+          let diplomaAverage: any = rawAvg ? parseFloat(String(rawAvg).replace(",", ".")) : "Not provided";
+          if (typeof diplomaAverage === "number" && (isNaN(diplomaAverage) || diplomaAverage < 0 || diplomaAverage > 20)) {
+            diplomaAverage = "Not provided";
           }
 
           const res = addCandidate({
@@ -326,13 +337,16 @@ function PromotionDetail() {
   }, [candidates]);
 
   const ageDist = useMemo(() => {
-    const counts: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0 };
-    const totals: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0 };
+    const counts: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0, "Not provided": 0 };
+    const totals: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0, "Not provided": 0 };
     candidates.forEach((c) => {
-      let bucket = "41+";
-      if (c.age >= 19 && c.age <= 25) bucket = "19-25";
-      else if (c.age >= 26 && c.age <= 30) bucket = "26-30";
-      else if (c.age >= 31 && c.age <= 40) bucket = "31-40";
+      let bucket = "Not provided";
+      if (typeof c.age === "number") {
+        if (c.age >= 19 && c.age <= 25) bucket = "19-25";
+        else if (c.age >= 26 && c.age <= 30) bucket = "26-30";
+        else if (c.age >= 31 && c.age <= 40) bucket = "31-40";
+        else bucket = "41+";
+      }
       
       counts[bucket]++;
       totals[bucket] += overallAverage(c);
@@ -651,7 +665,12 @@ function PromotionDetail() {
                     {filtered.map((c) => {
                       const a = overallAverage(c);
                       return (
-                        <tr key={c.id} className="border-b hover:bg-muted/30">
+                        <tr
+                          key={c.id}
+                          className="border-b hover:bg-muted/30 cursor-pointer"
+                          onDoubleClick={() => setEditingCandidateId(c.id)}
+                          title="Double click to edit candidate"
+                        >
                           <td className="py-2 px-3 font-medium flex items-center gap-1.5">
                             {c.firstName} {c.lastName}
                           </td>
@@ -677,6 +696,13 @@ function PromotionDetail() {
                 </table>
               </div>
             </CardContent>
+            <EditCandidateDialog
+              candidate={editingCandidate}
+              open={!!editingCandidate}
+              onOpenChange={(open) => {
+                if (!open) setEditingCandidateId(null);
+              }}
+            />
           </Card>
         </TabsContent>
       </Tabs>

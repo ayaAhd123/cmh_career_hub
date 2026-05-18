@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,11 +7,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { CategoryBadge, StatusBadge } from "@/components/badges";
 import {
   categoryFor, disciplineAvg, formatDate, overallAverage, skillsAvg, testsAvg, workAvg,
 } from "@/lib/calc";
-import { ArrowLeft, Download, Mars, Trash2, Venus } from "lucide-react";
+import { ArrowLeft, Download, Mars, Trash2, Venus, Pencil, Check, X, Save } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -52,7 +64,84 @@ function CandidateDetail() {
   const updateModuleScore = useStore((s) => s.updateModuleScore);
   const changeStatus = useStore((s) => s.changeStatus);
   const archive = useStore((s) => s.archiveCandidate);
+  const updateCandidate = useStore((s) => s.updateCandidate);
   const nav = useNavigate();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    age: "" as number | string,
+    gender: "",
+    recruitmentDate: "",
+    educationLevel: "",
+    diplomaName: "",
+    diplomaAverage: "" as number | string,
+    photo: "",
+    photoFile: null as File | null,
+    photoPreview: "",
+  });
+
+  const startEditing = () => {
+    if (!candidate) return;
+    setEditForm({
+      firstName: candidate.firstName,
+      lastName: candidate.lastName,
+      email: candidate.email,
+      phone: candidate.phone === "Not provided" ? "" : candidate.phone,
+      age: candidate.age === "Not provided" ? "" : candidate.age,
+      gender: candidate.gender === "Not provided" ? "" : candidate.gender,
+      recruitmentDate: candidate.recruitmentDate === "Not provided" ? "" : candidate.recruitmentDate,
+      educationLevel: candidate.educationLevel === "Not provided" ? "" : candidate.educationLevel,
+      diplomaName: candidate.diplomaName === "Not provided" ? "" : candidate.diplomaName,
+      diplomaAverage: candidate.diplomaAverage === "Not provided" ? "" : candidate.diplomaAverage,
+      photo: candidate.photo || "",
+      photoFile: null,
+      photoPreview: candidate.photo || "",
+    });
+    setIsEditing(true);
+  };
+
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const saveChanges = async () => {
+    if (!candidate) return;
+    if (!editForm.firstName || !editForm.lastName) {
+      toast.error("First name and last name are required");
+      return;
+    }
+
+    const photoValue = editForm.photoFile
+      ? await readFileAsDataUrl(editForm.photoFile)
+      : editForm.photo;
+
+    updateCandidate(candidate.id, {
+      firstName: editForm.firstName,
+      lastName: editForm.lastName,
+      email: editForm.email || "Not provided",
+      phone: editForm.phone || "Not provided",
+      age: editForm.age === "" ? "Not provided" : Number(editForm.age),
+      gender: editForm.gender || "Not provided",
+      recruitmentDate: editForm.recruitmentDate || "Not provided",
+      educationLevel: editForm.educationLevel || "Not provided",
+      diplomaName: editForm.diplomaName || "Not provided",
+      diplomaAverage:
+        editForm.diplomaAverage === "" ? "Not provided" : Number(editForm.diplomaAverage),
+      photo: photoValue,
+    });
+
+    toast.success("Personal info updated successfully");
+    setIsEditing(false);
+  };
 
   if (!candidate) return <p>Not found</p>;
   const avg = overallAverage(candidate);
@@ -131,19 +220,35 @@ function CandidateDetail() {
                 <SelectItem value="Terminated">Terminated</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                if (confirm("Archive this candidate? (soft delete)")) {
-                  archive(candidate.id);
-                  toast.success("Archived");
-                  nav({ to: "/promotions/$id", params: { id: candidate.promotionId } });
-                }
-              }}
-            >
-              <Trash2 className="mr-1 h-4 w-4" /> Archive
-            </Button>
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+                  <Trash2 className="mr-1 h-4 w-4" /> Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Archive candidate?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action will archive the candidate and remove them from the active promotion view.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => {
+                      archive(candidate.id);
+                      toast.success("Archived");
+                      nav({ to: "/promotions/$id", params: { id: candidate.promotionId } });
+                      setShowDeleteDialog(false);
+                    }}
+                  >
+                    Archive candidate
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardContent>
       </Card>
@@ -158,27 +263,129 @@ function CandidateDetail() {
 
         <TabsContent value="info">
           <Card>
-            <CardContent className="p-6 grid gap-3 sm:grid-cols-2 text-sm">
-              <Field label="Email" value={candidate.email} />
-              <Field label="Phone" value={candidate.phone} />
-              <Field label="Age" value={`${candidate.age} ans`} />
-              <Field 
-                label="Gender" 
-                value={
-                  <div className="flex items-center gap-2">
-                    {candidate.gender}
-                    {candidate.gender === "Homme" ? (
-                      <Mars className="h-4 w-4 text-blue-500" />
-                    ) : (
-                      <Venus className="h-4 w-4 text-pink-500" />
-                    )}
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Personal Information</CardTitle>
+              {!isEditing && (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={startEditing}>
+                    <Pencil className="mr-1 h-4 w-4" /> Edit
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent className="p-6 pt-2">
+              {isEditing ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label>First Name *</Label>
+                      <Input value={editForm.firstName} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Last Name *</Label>
+                      <Input value={editForm.lastName} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Email</Label>
+                      <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Phone</Label>
+                      <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Age</Label>
+                      <Input type="number" min={18} max={65} value={editForm.age} onChange={(e) => setEditForm({ ...editForm, age: e.target.value === "" ? "" : parseInt(e.target.value) || "" })} />
+                    </div>
+                    <div>
+                      <Label>Gender</Label>
+                      <Select value={editForm.gender} onValueChange={(v) => setEditForm({ ...editForm, gender: v })}>
+                        <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Homme">Homme</SelectItem>
+                          <SelectItem value="Femme">Femme</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Education Level</Label>
+                      <Select value={editForm.educationLevel} onValueChange={(v) => setEditForm({ ...editForm, educationLevel: v })}>
+                        <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
+                        <SelectContent>
+                          {(["Bac+2", "Bac+3", "Bac+5", "Bac+8"] as const).map((l) => (
+                            <SelectItem key={l} value={l}>{l}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Recruitment Date</Label>
+                      <Input type="date" value={editForm.recruitmentDate} onChange={(e) => setEditForm({ ...editForm, recruitmentDate: e.target.value })} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Diploma Name</Label>
+                      <Input value={editForm.diplomaName} onChange={(e) => setEditForm({ ...editForm, diplomaName: e.target.value })} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Diploma Average (/20)</Label>
+                      <Input type="number" min={0} max={20} step={0.1} value={editForm.diplomaAverage} onChange={(e) => setEditForm({ ...editForm, diplomaAverage: e.target.value === "" ? "" : parseFloat(e.target.value) || "" })} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Photo</Label>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          setEditForm({
+                            ...editForm,
+                            photoFile: file,
+                            photoPreview: file ? URL.createObjectURL(file) : editForm.photoPreview,
+                          });
+                        }}
+                      />
+                      {editForm.photoPreview ? (
+                        <img
+                          src={editForm.photoPreview}
+                          alt="Photo preview"
+                          className="mt-3 h-24 w-24 rounded-full object-cover"
+                        />
+                      ) : null}
+                    </div>
                   </div>
-                } 
-              />
-              <Field label="Recruitment Date" value={formatDate(candidate.recruitmentDate)} />
-              <Field label="Education" value={candidate.educationLevel} />
-              <Field label="Diploma" value={candidate.diplomaName} />
-              <Field label="Diploma Average" value={`${candidate.diplomaAverage}/20`} />
+                  <div className="flex justify-end gap-2 pt-4 border-t">
+                    <Button variant="ghost" onClick={() => setIsEditing(false)}>
+                      <X className="mr-1 h-4 w-4" /> Cancel
+                    </Button>
+                    <Button onClick={saveChanges}>
+                      <Save className="mr-1 h-4 w-4" /> Save Changes
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                  <Field label="Email" value={candidate.email} />
+                  <Field label="Phone" value={candidate.phone} />
+                  <Field label="Age" value={(!candidate.age || candidate.age === "Not provided") ? "Not provided" : `${candidate.age} years old`} />
+                  <Field 
+                    label="Gender" 
+                    value={
+                      <div className="flex items-center gap-2">
+                        {candidate.gender}
+                        {candidate.gender === "Homme" ? (
+                          <Mars className="h-4 w-4 text-blue-500" />
+                        ) : candidate.gender === "Femme" ? (
+                          <Venus className="h-4 w-4 text-pink-500" />
+                        ) : null}
+                      </div>
+                    } 
+                  />
+                  <Field label="Recruitment Date" value={(!candidate.recruitmentDate || candidate.recruitmentDate === "Not provided") ? "Not provided" : formatDate(candidate.recruitmentDate)} />
+                  <Field label="Education" value={candidate.educationLevel} />
+                  <Field label="Diploma" value={candidate.diplomaName} />
+                  <Field label="Diploma Average" value={(!candidate.diplomaAverage || candidate.diplomaAverage === "Not provided") ? "Not provided" : `${candidate.diplomaAverage}/20`} />
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
