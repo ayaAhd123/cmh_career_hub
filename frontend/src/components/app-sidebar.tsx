@@ -39,12 +39,14 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-base">
             C
           </div>
-          <div className="flex flex-col leading-tight">
+          <div className="flex flex-col leading-tight group-data-[state=collapsed]:hidden">
             <span className="font-bold text-foreground">CareerHub</span>
-            <span className="text-[10px] text-muted-foreground">by CMH Cloud Marketing Hub</span>
+            <span className="text-[10px] text-muted-foreground">
+              by CMH Cloud Marketing Hub
+            </span>
           </div>
         </div>
       </SidebarHeader>
