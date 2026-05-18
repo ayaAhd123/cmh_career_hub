@@ -135,7 +135,7 @@ export function RemindersPopover() {
           </Badge>
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
           {reminders.length > 0 ? (
             reminders.map((reminder) => (
               <Link
