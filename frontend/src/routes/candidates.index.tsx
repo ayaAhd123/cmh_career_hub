@@ -8,7 +8,7 @@ import { CategoryBadge, StatusBadge } from "@/components/badges";
 import { categoryFor, overallAverage } from "@/lib/calc";
 import {
   ArrowRight, Search, X, Download, ChevronDown, Filter,
-  FileText, FileCode, Sheet
+  FileText, FileCode, Sheet, Pencil, Trash2
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -38,6 +38,7 @@ const SORT_OPTIONS = [
 function AllCandidates() {
   const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
+  const hardDeleteCandidate = useStore((s) => s.hardDeleteCandidate);
 
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | CandidateStatus>("All");
@@ -396,11 +397,38 @@ function AllCandidates() {
                       <td className="py-2.5 px-3 text-muted-foreground text-xs">{c.email}</td>
                       <td className="py-2.5 px-3 text-xs text-muted-foreground">{c.gender}</td>
                       <td className="py-2.5 px-3 text-xs">{c.educationLevel}</td>
-                      <td className="py-2.5 px-3 text-xs">{promo?.name ?? "—"}</td>
+                      <td className="py-2.5 px-3 text-xs">
+                        {promo ? (
+                          <Button asChild variant="ghost" className="px-0 text-left text-primary hover:underline" size="sm">
+                            <Link to="/promotions/$id" params={{ id: promo.id }}>
+                              {promo.name}
+                            </Link>
+                          </Button>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="py-2.5 px-3 font-semibold tabular-nums">{a.toFixed(2)}</td>
                       <td className="py-2.5 px-3"><CategoryBadge category={categoryFor(a)} /></td>
                       <td className="py-2.5 px-3"><StatusBadge status={c.status} /></td>
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 flex items-center gap-2">
+                        <Button asChild variant="ghost" size="icon" aria-label="Edit candidate">
+                          <Link to="/candidates/$id" params={{ id: c.id }}>
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Delete candidate"
+                          onClick={() => {
+                            if (confirm(`Delete candidate ${c.firstName} ${c.lastName}?`)) {
+                              hardDeleteCandidate(c.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                         <Button asChild size="sm" variant="ghost">
                           <Link to="/candidates/$id" params={{ id: c.id }}>
                             <ArrowRight className="h-4 w-4" />

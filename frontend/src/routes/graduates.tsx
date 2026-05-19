@@ -6,9 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategoryBadge } from "@/components/badges";
 import { categoryFor, formatDate, overallAverage } from "@/lib/calc";
-import { Award, Download, X } from "lucide-react";
+import { Award, Download, Filter, Search, X, ChevronDown } from "lucide-react";
 import * as XLSX from "xlsx";
-import { SearchSelect } from "@/components/search-select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
 import type { CandidateStatus, EducationLevel, Gender, Category } from "@/lib/types";
 
 const STATUS_OPTIONS: CandidateStatus[] = ["Active", "Graduated", "Dismissed", "Terminated"];
@@ -48,6 +56,21 @@ function Graduates() {
     });
   }, [candidates, searchTerm, selectedCategory, statusFilter, genderFilter, educationFilter]);
 
+  const hasFilters =
+    searchTerm ||
+    statusFilter !== "All" ||
+    genderFilter !== "All" ||
+    educationFilter !== "All" ||
+    selectedCategory !== "All";
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("All");
+    setGenderFilter("All");
+    setEducationFilter("All");
+    setSelectedCategory("All");
+  };
+
   const exportXls = () => {
     const rows = candidates.map((c) => {
       const promo = promotions.find((p) => p.id === c.promotionId);
@@ -82,68 +105,102 @@ function Graduates() {
           <Download className="mr-1 h-4 w-4" /> Export Excel
         </Button>
       </div>
-      <div className="flex gap-3 items-end flex-wrap">
-        <div className="flex-1 min-w-xs">
-          <label className="text-sm font-medium text-muted-foreground block mb-2">Search by name</label>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search graduates..."
+            id="graduates-search"
+            placeholder="Search name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full"
+            className="pl-9 pr-8 bg-background"
           />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+              onClick={() => setSearchTerm("")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
-        <div className="min-w-xs">
-          <label className="text-sm font-medium text-muted-foreground block mb-2">Status</label>
-          <SearchSelect
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: "All", label: "All Statuses" },
-              ...STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
-            ]}
-            placeholder="Select status..."
-            className="w-full md:min-w-[180px]"
-          />
-        </div>
-        <div className="min-w-xs">
-          <label className="text-sm font-medium text-muted-foreground block mb-2">Gender</label>
-          <SearchSelect
-            value={genderFilter}
-            onChange={setGenderFilter}
-            options={[
-              { value: "All", label: "All Genders" },
-              ...GENDER_OPTIONS.map((g) => ({ value: g, label: g })),
-            ]}
-            placeholder="Select gender..."
-            className="w-full md:min-w-[160px]"
-          />
-        </div>
-        <div className="min-w-xs">
-          <label className="text-sm font-medium text-muted-foreground block mb-2">Education</label>
-          <SearchSelect
-            value={educationFilter}
-            onChange={setEducationFilter}
-            options={[
-              { value: "All", label: "All Levels" },
-              ...EDU_OPTIONS.map((e) => ({ value: e, label: e })),
-            ]}
-            placeholder="Select education..."
-            className="w-full md:min-w-[180px]"
-          />
-        </div>
-        <div className="min-w-xs">
-          <label className="text-sm font-medium text-muted-foreground block mb-2">Category</label>
-          <SearchSelect
-            value={selectedCategory}
-            onChange={setSelectedCategory}
-            options={[
-              { value: "All", label: "All Categories" },
-              ...CATEGORY_OPTIONS.map((c) => ({ value: c, label: c })),
-            ]}
-            placeholder="Select category..."
-            className="w-full md:min-w-[180px]"
-          />
-        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              <Filter className="h-3.5 w-3.5" />
+              {statusFilter === "All" ? "Status" : statusFilter}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={statusFilter} onValueChange={setStatusFilter}>
+              <DropdownMenuRadioItem value="All">All Statuses</DropdownMenuRadioItem>
+              {STATUS_OPTIONS.map((status) => (
+                <DropdownMenuRadioItem key={status} value={status}>{status}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              {genderFilter === "All" ? "Gender" : genderFilter}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={genderFilter} onValueChange={setGenderFilter}>
+              <DropdownMenuRadioItem value="All">All Genders</DropdownMenuRadioItem>
+              {GENDER_OPTIONS.map((gender) => (
+                <DropdownMenuRadioItem key={gender} value={gender}>{gender}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              {educationFilter === "All" ? "Education" : educationFilter}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={educationFilter} onValueChange={setEducationFilter}>
+              <DropdownMenuRadioItem value="All">All Levels</DropdownMenuRadioItem>
+              {EDU_OPTIONS.map((education) => (
+                <DropdownMenuRadioItem key={education} value={education}>{education}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              {selectedCategory === "All" ? "Category" : selectedCategory}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={selectedCategory} onValueChange={setSelectedCategory}>
+              <DropdownMenuRadioItem value="All">All Categories</DropdownMenuRadioItem>
+              {CATEGORY_OPTIONS.map((category) => (
+                <DropdownMenuRadioItem key={category} value={category}>{category}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5 mr-1.5" /> Clear
+          </Button>
+        )}
       </div>
       <Card>
         <CardHeader><CardTitle>{filteredCandidates.length} of {candidates.length} graduates</CardTitle></CardHeader>

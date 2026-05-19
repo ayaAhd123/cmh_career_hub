@@ -28,6 +28,8 @@ import {
   X,
   Mars,
   Venus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx-js-style";
@@ -113,6 +115,7 @@ function PromotionDetail() {
   );
   const archive = useStore((s) => s.archivePromotion);
   const addCandidate = useStore((s) => s.addCandidate);
+  const hardDeleteCandidate = useStore((s) => s.hardDeleteCandidate);
   const nav = useNavigate();
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<string>("all");
@@ -466,11 +469,11 @@ function PromotionDetail() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs defaultValue="candidates" className="w-full">
         <TabsList className="mb-4">
+          <TabsTrigger value="candidates">Candidates List</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="demographics">Demographics</TabsTrigger>
-          <TabsTrigger value="candidates">Candidates List</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -679,7 +682,31 @@ function PromotionDetail() {
                           <td className="py-2 px-3 font-semibold">{a.toFixed(2)}</td>
                           <td className="py-2 px-3"><CategoryBadge category={categoryFor(a)} /></td>
                           <td className="py-2 px-3"><StatusBadge status={c.status} /></td>
-                          <td className="py-2 px-3">
+                          <td className="py-2 px-3 flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Edit candidate"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setEditingCandidateId(c.id);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Delete candidate"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (confirm(`Delete candidate ${c.firstName} ${c.lastName}?`)) {
+                                  hardDeleteCandidate(c.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                             <Button asChild size="sm" variant="ghost">
                               <Link to="/candidates/$id" params={{ id: c.id }}>
                                 <ArrowRight className="h-4 w-4" />
