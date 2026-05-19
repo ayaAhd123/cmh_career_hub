@@ -67,6 +67,14 @@ function CandidateDetail() {
   const updateCandidate = useStore((s) => s.updateCandidate);
   const nav = useNavigate();
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      nav({ to: "/promotions/$id", params: { id: candidate?.promotionId ?? "" } });
+    }
+  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -159,10 +167,8 @@ function CandidateDetail() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" asChild>
-        <Link to="/promotions/$id" params={{ id: candidate.promotionId }}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Back to promotion
-        </Link>
+      <Button variant="ghost" size="sm" onClick={handleBack}>
+        <ArrowLeft className="mr-1 h-4 w-4" /> Back
       </Button>
 
       <Card>

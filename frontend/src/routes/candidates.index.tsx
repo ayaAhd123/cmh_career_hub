@@ -4,7 +4,9 @@ import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CategoryBadge, StatusBadge } from "@/components/badges";
+import { EditCandidateDialog } from "@/components/edit-candidate-dialog";
 import { categoryFor, overallAverage } from "@/lib/calc";
 import {
   ArrowRight, Search, X, Download, ChevronDown, Filter,
@@ -15,7 +17,23 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
   DropdownMenuRadioGroup, DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
-import type { CandidateStatus, EducationLevel, Gender, Category } from "@/lib/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type {
+  Candidate,
+  CandidateStatus,
+  EducationLevel,
+  Gender,
+  Category,
+} from "@/lib/types";
 
 export const Route = createFileRoute("/candidates/")({
   head: () => ({ meta: [{ title: "All Candidates — CareerHub" }] }),
@@ -49,6 +67,9 @@ function AllCandidates() {
   const [sortBy, setSortBy] = useState("avg_desc");
 
   const activePromotions = useMemo(() => promotions.filter((p) => !p.archived), [promotions]);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<Candidate | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const filtered = useMemo(() => {
     let list = allCandidates.filter((c) => !c.archived);
@@ -399,11 +420,13 @@ function AllCandidates() {
                       <td className="py-2.5 px-3 text-xs">{c.educationLevel}</td>
                       <td className="py-2.5 px-3 text-xs">
                         {promo ? (
-                          <Button asChild variant="ghost" className="px-0 text-left text-primary hover:underline" size="sm">
-                            <Link to="/promotions/$id" params={{ id: promo.id }}>
-                              {promo.name}
-                            </Link>
-                          </Button>
+                          <Link
+                            to="/promotions/$id"
+                            params={{ id: promo.id }}
+                            className="text-blue-600 transition-colors hover:text-orange-500 hover:bg-transparent"
+                          >
+                            {promo.name}
+                          </Link>
                         ) : (
                           "—"
                         )}
@@ -412,19 +435,21 @@ function AllCandidates() {
                       <td className="py-2.5 px-3"><CategoryBadge category={categoryFor(a)} /></td>
                       <td className="py-2.5 px-3"><StatusBadge status={c.status} /></td>
                       <td className="py-2.5 px-3 flex items-center gap-2">
-                        <Button asChild variant="ghost" size="icon" aria-label="Edit candidate">
-                          <Link to="/candidates/$id" params={{ id: c.id }}>
-                            <Pencil className="h-4 w-4" />
-                          </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Edit candidate"
+                          onClick={() => setEditingCandidate(c)}
+                        >
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           aria-label="Delete candidate"
                           onClick={() => {
-                            if (confirm(`Delete candidate ${c.firstName} ${c.lastName}?`)) {
-                              hardDeleteCandidate(c.id);
-                            }
+                            setDeleteCandidate(c);
+                            setDeleteConfirmText("");
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -443,6 +468,58 @@ function AllCandidates() {
           )}
         </CardContent>
       </Card>
+
+      <EditCandidateDialog
+        candidate={editingCandidate}
+        open={!!editingCandidate}
+        onOpenChange={(open) => {
+          if (!open) setEditingCandidate(null);
+        }}
+      />
+
+      <AlertDialog
+        open={!!deleteCandidate}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteCandidate(null);
+            setDeleteConfirmText("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete candidate?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteCandidate?.firstName} {deleteCandidate?.lastName}.
+              Type DELETE below to confirm. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <Label htmlFor="delete-confirm">Type DELETE to confirm</Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirmText}
+              onChange={(event) => setDeleteConfirmText(event.target.value)}
+              placeholder="DELETE"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteConfirmText !== "DELETE"}
+              onClick={() => {
+                if (!deleteCandidate) return;
+                hardDeleteCandidate(deleteCandidate.id);
+                setDeleteCandidate(null);
+                setDeleteConfirmText("");
+              }}
+            >
+              Delete candidate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
