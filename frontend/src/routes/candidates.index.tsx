@@ -15,7 +15,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
   DropdownMenuRadioGroup, DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
-import type { CandidateStatus, EducationLevel, Gender } from "@/lib/types";
+import type { CandidateStatus, EducationLevel, Gender, Category } from "@/lib/types";
 
 export const Route = createFileRoute("/candidates/")({
   head: () => ({ meta: [{ title: "All Candidates — CareerHub" }] }),
@@ -24,6 +24,7 @@ export const Route = createFileRoute("/candidates/")({
 
 const STATUS_OPTIONS: CandidateStatus[] = ["Active", "Graduated", "Dismissed", "Terminated"];
 const GENDER_OPTIONS: Gender[] = ["Homme", "Femme"];
+const CATEGORY_OPTIONS: Category[] = ["Excellent", "Good", "Passable", "Critical"];
 const EDU_OPTIONS: EducationLevel[] = ["Bac+2", "Bac+3", "Bac+5", "Bac+8"];
 const SORT_OPTIONS = [
   { value: "avg_desc", label: "Best Average" },
@@ -42,6 +43,7 @@ function AllCandidates() {
   const [statusFilter, setStatusFilter] = useState<"All" | CandidateStatus>("All");
   const [genderFilter, setGenderFilter] = useState<"All" | Gender>("All");
   const [eduFilter, setEduFilter] = useState<"All" | EducationLevel>("All");
+  const [categoryFilter, setCategoryFilter] = useState<"All" | Category>("All");
   const [promoFilter, setPromoFilter] = useState<"All" | string>("All");
   const [sortBy, setSortBy] = useState("avg_desc");
 
@@ -62,6 +64,7 @@ function AllCandidates() {
     if (statusFilter !== "All") list = list.filter((c) => c.status === statusFilter);
     if (genderFilter !== "All") list = list.filter((c) => c.gender === genderFilter);
     if (eduFilter !== "All") list = list.filter((c) => c.educationLevel === eduFilter);
+    if (categoryFilter !== "All") list = list.filter((c) => categoryFor(overallAverage(c)) === categoryFilter);
     if (promoFilter !== "All") list = list.filter((c) => c.promotionId === promoFilter);
 
     list = [...list].sort((a, b) => {
@@ -78,11 +81,11 @@ function AllCandidates() {
     return list;
   }, [allCandidates, q, statusFilter, genderFilter, eduFilter, promoFilter, sortBy]);
 
-  const hasFilters = q || statusFilter !== "All" || genderFilter !== "All" || eduFilter !== "All" || promoFilter !== "All";
+  const hasFilters = q || statusFilter !== "All" || genderFilter !== "All" || eduFilter !== "All" || categoryFilter !== "All" || promoFilter !== "All";
 
   const clearFilters = () => {
     setQ(""); setStatusFilter("All"); setGenderFilter("All");
-    setEduFilter("All"); setPromoFilter("All"); setSortBy("avg_desc");
+    setEduFilter("All"); setCategoryFilter("All"); setPromoFilter("All"); setSortBy("avg_desc");
   };
 
   // ── Export helpers ────────────────────────────────────────────────
@@ -278,6 +281,24 @@ function AllCandidates() {
               <DropdownMenuRadioItem value="All">All Levels</DropdownMenuRadioItem>
               {EDU_OPTIONS.map((e) => (
                 <DropdownMenuRadioItem key={e} value={e}>{e}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Category filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              {categoryFilter === "All" ? "Category" : categoryFilter}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
+              <DropdownMenuRadioItem value="All">All Categories</DropdownMenuRadioItem>
+              {CATEGORY_OPTIONS.map((c) => (
+                <DropdownMenuRadioItem key={c} value={c}>{c}</DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
