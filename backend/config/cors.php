@@ -6,6 +6,8 @@ return [
     'allowed_origins' => [
         'http://localhost:5173',
         'https://localhost:5173',
+        'http://localhost:8081',
+        'https://localhost:8081',
     ],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
