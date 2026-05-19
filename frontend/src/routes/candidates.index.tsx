@@ -79,7 +79,7 @@ function AllCandidates() {
     });
 
     return list;
-  }, [allCandidates, q, statusFilter, genderFilter, eduFilter, promoFilter, sortBy]);
+  }, [allCandidates, q, statusFilter, genderFilter, eduFilter, categoryFilter, promoFilter, sortBy]);
 
   const hasFilters = q || statusFilter !== "All" || genderFilter !== "All" || eduFilter !== "All" || categoryFilter !== "All" || promoFilter !== "All";
 
