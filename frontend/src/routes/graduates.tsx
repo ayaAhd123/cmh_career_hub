@@ -9,6 +9,12 @@ import { categoryFor, formatDate, overallAverage } from "@/lib/calc";
 import { Award, Download, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { SearchSelect } from "@/components/search-select";
+import type { CandidateStatus, EducationLevel, Gender, Category } from "@/lib/types";
+
+const STATUS_OPTIONS: CandidateStatus[] = ["Active", "Graduated", "Dismissed", "Terminated"];
+const GENDER_OPTIONS: Gender[] = ["Homme", "Femme"];
+const EDU_OPTIONS: EducationLevel[] = ["Bac+2", "Bac+3", "Bac+5", "Bac+8"];
+const CATEGORY_OPTIONS: Category[] = ["Excellent", "Good", "Passable", "Critical"];
 
 export const Route = createFileRoute("/graduates")({
   head: () => ({ meta: [{ title: "Graduates — CareerHub" }] }),
@@ -19,7 +25,10 @@ function Graduates() {
   const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [genderFilter, setGenderFilter] = useState<string>("All");
+  const [educationFilter, setEducationFilter] = useState<string>("All");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const candidates = useMemo(
     () => allCandidates.filter((c) => !c.archived && (c.status === "Graduated" || (overallAverage(c) >= 10 && c.status !== "Active"))),
@@ -31,10 +40,13 @@ function Graduates() {
       const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
       const matchesSearch = fullName.includes(searchTerm.toLowerCase());
       const category = categoryFor(overallAverage(c));
-      const matchesCategory = !selectedCategory || category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      const matchesCategory = selectedCategory === "All" || category === selectedCategory;
+      const matchesStatus = statusFilter === "All" || c.status === statusFilter;
+      const matchesGender = genderFilter === "All" || c.gender === genderFilter;
+      const matchesEducation = educationFilter === "All" || c.educationLevel === educationFilter;
+      return matchesSearch && matchesCategory && matchesStatus && matchesGender && matchesEducation;
     });
-  }, [candidates, searchTerm, selectedCategory]);
+  }, [candidates, searchTerm, selectedCategory, statusFilter, genderFilter, educationFilter]);
 
   const exportXls = () => {
     const rows = candidates.map((c) => {
@@ -81,19 +93,55 @@ function Graduates() {
           />
         </div>
         <div className="min-w-xs">
-          <label className="text-sm font-medium text-muted-foreground block mb-2">Filter by category</label>
+          <label className="text-sm font-medium text-muted-foreground block mb-2">Status</label>
+          <SearchSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: "All", label: "All Statuses" },
+              ...STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
+            ]}
+            placeholder="Select status..."
+            className="w-full md:min-w-[180px]"
+          />
+        </div>
+        <div className="min-w-xs">
+          <label className="text-sm font-medium text-muted-foreground block mb-2">Gender</label>
+          <SearchSelect
+            value={genderFilter}
+            onChange={setGenderFilter}
+            options={[
+              { value: "All", label: "All Genders" },
+              ...GENDER_OPTIONS.map((g) => ({ value: g, label: g })),
+            ]}
+            placeholder="Select gender..."
+            className="w-full md:min-w-[160px]"
+          />
+        </div>
+        <div className="min-w-xs">
+          <label className="text-sm font-medium text-muted-foreground block mb-2">Education</label>
+          <SearchSelect
+            value={educationFilter}
+            onChange={setEducationFilter}
+            options={[
+              { value: "All", label: "All Levels" },
+              ...EDU_OPTIONS.map((e) => ({ value: e, label: e })),
+            ]}
+            placeholder="Select education..."
+            className="w-full md:min-w-[180px]"
+          />
+        </div>
+        <div className="min-w-xs">
+          <label className="text-sm font-medium text-muted-foreground block mb-2">Category</label>
           <SearchSelect
             value={selectedCategory}
             onChange={setSelectedCategory}
             options={[
-              { value: "", label: "All Categories" },
-              { value: "Excellent", label: "Excellent" },
-              { value: "Good", label: "Good" },
-              { value: "Passable", label: "Passable" },
-              { value: "Critical", label: "Critical" },
+              { value: "All", label: "All Categories" },
+              ...CATEGORY_OPTIONS.map((c) => ({ value: c, label: c })),
             ]}
             placeholder="Select category..."
-            className="w-full md:min-w-[200px]"
+            className="w-full md:min-w-[180px]"
           />
         </div>
       </div>
