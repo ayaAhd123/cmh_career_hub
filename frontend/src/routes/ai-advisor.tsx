@@ -58,7 +58,7 @@ function AIAdvisor() {
           <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-8 text-sm">
-                <p className="mb-3">👋 Ask me questions about your candidate data:</p>
+                <p className="mb-3 font-bold">Ask me questions about your candidate data:</p>
                 <div className="space-y-2 text-left max-w-xs mx-auto">
                   <p className="text-xs">• What education levels are best?</p>
                   <p className="text-xs">• Which skills correlate with success?</p>
