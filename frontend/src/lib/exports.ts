@@ -55,7 +55,7 @@ export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
       ["Phone", c.phone],
       ["Recruitment Date", formatDate(c.recruitmentDate)],
       ["Education", `${c.educationLevel} - ${c.diplomaName}`],
-      ["Diploma Average", `${c.diplomaAverage}/20`],
+      ["Diploma Average", c.diplomaAverage === "Not provided" ? "Not provided" : `${c.diplomaAverage}/20`],
       ["Promotion", promo ? `${promo.id} ${promo.name}` : "—"],
       ["Status", c.status],
     ],

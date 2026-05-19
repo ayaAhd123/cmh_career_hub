@@ -70,4 +70,11 @@ export const turnoverRate = (cands: Candidate[]) => {
   return Math.round((out / active.length) * 100);
 };
 
-export const formatDate = (iso: string) => format(parseISO(iso), "dd/MM/yyyy");
+export const formatDate = (iso: string) => {
+  if (!iso || iso === "Not provided") return "Not provided";
+  try {
+    return format(parseISO(iso), "dd/MM/yyyy");
+  } catch {
+    return iso;
+  }
+};

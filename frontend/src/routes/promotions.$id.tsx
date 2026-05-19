@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,12 +22,15 @@ import {
   Star,
   AlertTriangle,
   Download,
+  Upload,
   ArrowRight,
   Search,
   X,
   Mars,
   Venus,
 } from "lucide-react";
+import { toast } from "sonner";
+import * as XLSX from "xlsx-js-style";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Label as RechartsLabel
 } from "recharts";
@@ -63,6 +66,7 @@ const COLORS: Record<string, string> = {
 const GENDER_COLORS: Record<string, string> = {
   Homme: "hsl(220 70% 50%)",
   Femme: "hsl(340 75% 55%)",
+  "Not provided": "hsl(0 0% 60%)",
 };
 
 const CHART_COLORS = [
@@ -107,10 +111,143 @@ function PromotionDetail() {
     [allCandidates, id],
   );
   const archive = useStore((s) => s.archivePromotion);
+  const addCandidate = useStore((s) => s.addCandidate);
   const nav = useNavigate();
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !promotion) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = event.target?.result;
+        if (!data) return;
+
+        const workbook = XLSX.read(data, { type: "binary" });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { raw: false });
+
+        if (rows.length === 0) {
+          toast.error("The selected Excel file is empty");
+          return;
+        }
+
+        let added = 0;
+        let duplicates = 0;
+
+        rows.forEach((row, index) => {
+          const normRow: Record<string, any> = {};
+          Object.keys(row).forEach((k) => {
+            normRow[k.toLowerCase().trim()] = row[k];
+          });
+
+          const findVal = (...keys: string[]) => {
+            for (const k of keys) {
+              const found = Object.keys(normRow).find((nk) => nk === k || nk.includes(k));
+              if (found && normRow[found] !== undefined && normRow[found] !== "") {
+                return normRow[found];
+              }
+            }
+            return null;
+          };
+
+          const rawFirstName = findVal("firstname", "first name", "prénom", "prenom", "name", "nom");
+          const rawLastName = findVal("lastname", "last name", "nom", "family");
+          
+          let firstName = rawFirstName ? String(rawFirstName).trim() : "Not provided";
+          let lastName = rawLastName ? String(rawLastName).trim() : "Not provided";
+
+          if (rawFirstName && !rawLastName && firstName.includes(" ")) {
+            const parts = firstName.split(" ");
+            firstName = parts[0];
+            lastName = parts.slice(1).join(" ");
+          }
+
+          const rawEmail = findVal("email", "e-mail", "mail", "courriel", "adresse");
+          const email = rawEmail ? String(rawEmail).trim() : "Not provided";
+
+          const rawPhone = findVal("phone", "téléphone", "telephone", "tel", "mobile", "gsm");
+          const phone = rawPhone ? String(rawPhone).trim() : "Not provided";
+
+          const rawDate = findVal("recruitment date", "recruitmentdate", "date de recrutement", "date recrutement", "date");
+          const recruitmentDate = rawDate ? String(rawDate).trim() : "Not provided";
+
+          const rawAge = findVal("age", "âge");
+          const age = rawAge ? parseInt(String(rawAge), 10) || "Not provided" : "Not provided";
+
+          const rawGender = findVal("gender", "sexe", "genre");
+          let gender: any = "Not provided";
+          if (rawGender) {
+            const gStr = String(rawGender).trim().toLowerCase();
+            if (gStr.startsWith("f")) gender = "Femme";
+            else if (gStr.startsWith("h") || gStr.startsWith("m")) gender = "Homme";
+            else gender = String(rawGender).trim();
+          }
+
+          const rawEdu = findVal("education level", "education", "niveau d'étude", "niveau d'etude", "niveau", "etudes");
+          let educationLevel: any = "Not provided";
+          if (rawEdu) {
+            const eduStr = String(rawEdu).trim().toLowerCase();
+            if (eduStr.includes("2")) educationLevel = "Bac+2";
+            else if (eduStr.includes("3")) educationLevel = "Bac+3";
+            else if (eduStr.includes("5")) educationLevel = "Bac+5";
+            else if (eduStr.includes("8")) educationLevel = "Bac+8";
+            else educationLevel = String(rawEdu).trim();
+          }
+
+          const rawDiploma = findVal("diploma name", "diploma", "diplôme", "diplome", "specialite", "spécialité", "filiere", "filière");
+          const diplomaName = rawDiploma ? String(rawDiploma).trim() : "Not provided";
+
+          const rawAvg = findVal("diploma average", "diploma avg", "moyenne diplome", "moyenne diplôme", "moyenne", "score", "note");
+          let diplomaAverage: any = rawAvg ? parseFloat(String(rawAvg).replace(",", ".")) : "Not provided";
+          if (typeof diplomaAverage === "number" && (isNaN(diplomaAverage) || diplomaAverage < 0 || diplomaAverage > 20)) {
+            diplomaAverage = "Not provided";
+          }
+
+          const res = addCandidate({
+            promotionId: promotion.id,
+            firstName,
+            lastName,
+            email,
+            phone,
+            recruitmentDate,
+            age,
+            gender,
+            educationLevel,
+            diplomaName,
+            diplomaAverage,
+          });
+
+          if (res.ok) {
+            added++;
+          } else {
+            duplicates++;
+          }
+        });
+
+        if (added > 0) {
+          toast.success(`Successfully imported ${added} candidates!` + (duplicates > 0 ? ` (${duplicates} duplicates skipped)` : ""));
+        } else if (duplicates > 0) {
+          toast.warning(`No new candidates added. ${duplicates} duplicate emails found.`);
+        } else {
+          toast.error("Failed to import candidates. Please check the file format.");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Error parsing Excel file. Make sure it's a valid .xlsx or .csv file.");
+      } finally {
+        if (e.target) e.target.value = "";
+      }
+    };
+
+    reader.readAsBinaryString(file);
+  };
 
   if (!promotion) {
     return (
@@ -196,13 +333,16 @@ function PromotionDetail() {
   }, [candidates]);
 
   const ageDist = useMemo(() => {
-    const counts: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0 };
-    const totals: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0 };
+    const counts: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0, "Not provided": 0 };
+    const totals: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0, "Not provided": 0 };
     candidates.forEach((c) => {
-      let bucket = "41+";
-      if (c.age >= 19 && c.age <= 25) bucket = "19-25";
-      else if (c.age >= 26 && c.age <= 30) bucket = "26-30";
-      else if (c.age >= 31 && c.age <= 40) bucket = "31-40";
+      let bucket = "Not provided";
+      if (typeof c.age === "number") {
+        if (c.age >= 19 && c.age <= 25) bucket = "19-25";
+        else if (c.age >= 26 && c.age <= 30) bucket = "26-30";
+        else if (c.age >= 31 && c.age <= 40) bucket = "31-40";
+        else bucket = "41+";
+      }
       
       counts[bucket]++;
       totals[bucket] += overallAverage(c);
@@ -489,8 +629,15 @@ function PromotionDetail() {
                       <SelectItem value="Terminated">Terminated</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" className="bg-muted/40" onClick={() => exportPromotionExcel(promotion, candidates)}>
-                    <Download className="mr-2 h-4 w-4" /> Export Excel
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Button variant="outline" className="bg-muted/40" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="mr-2 h-4 w-4" /> Import Excel
                   </Button>
                   <AddCandidateDialog promotionId={promotion.id} />
                 </div>

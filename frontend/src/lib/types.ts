@@ -49,12 +49,12 @@ export interface Candidate {
   email: string;
   phone: string;
   recruitmentDate: string;
-  age: number;
-  gender: Gender;
+  age: number | string;
+  gender: Gender | string;
   photo?: string;
-  educationLevel: EducationLevel;
+  educationLevel: EducationLevel | string;
   diplomaName: string;
-  diplomaAverage: number;
+  diplomaAverage: number | string;
   skills: Skills;
   modules: ModuleScore[];
   status: CandidateStatus;
