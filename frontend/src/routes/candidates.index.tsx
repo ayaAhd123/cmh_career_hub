@@ -4,18 +4,36 @@ import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CategoryBadge, StatusBadge } from "@/components/badges";
+import { EditCandidateDialog } from "@/components/edit-candidate-dialog";
 import { categoryFor, overallAverage } from "@/lib/calc";
 import {
   ArrowRight, Search, X, Download, ChevronDown, Filter,
-  FileText, FileCode, Sheet
+  FileText, FileCode, Sheet, Pencil, Trash2
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
   DropdownMenuRadioGroup, DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
-import type { CandidateStatus, EducationLevel, Gender } from "@/lib/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type {
+  Candidate,
+  CandidateStatus,
+  EducationLevel,
+  Gender,
+  Category,
+} from "@/lib/types";
 
 export const Route = createFileRoute("/candidates/")({
   head: () => ({ meta: [{ title: "All Candidates — CareerHub" }] }),
@@ -24,6 +42,7 @@ export const Route = createFileRoute("/candidates/")({
 
 const STATUS_OPTIONS: CandidateStatus[] = ["Active", "Graduated", "Dismissed", "Terminated"];
 const GENDER_OPTIONS: Gender[] = ["Homme", "Femme"];
+const CATEGORY_OPTIONS: Category[] = ["Excellent", "Good", "Passable", "Critical"];
 const EDU_OPTIONS: EducationLevel[] = ["Bac+2", "Bac+3", "Bac+5", "Bac+8"];
 const SORT_OPTIONS = [
   { value: "avg_desc", label: "Best Average" },
@@ -37,15 +56,20 @@ const SORT_OPTIONS = [
 function AllCandidates() {
   const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
+  const hardDeleteCandidate = useStore((s) => s.hardDeleteCandidate);
 
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | CandidateStatus>("All");
   const [genderFilter, setGenderFilter] = useState<"All" | Gender>("All");
   const [eduFilter, setEduFilter] = useState<"All" | EducationLevel>("All");
+  const [categoryFilter, setCategoryFilter] = useState<"All" | Category>("All");
   const [promoFilter, setPromoFilter] = useState<"All" | string>("All");
   const [sortBy, setSortBy] = useState("avg_desc");
 
   const activePromotions = useMemo(() => promotions.filter((p) => !p.archived), [promotions]);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<Candidate | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const filtered = useMemo(() => {
     let list = allCandidates.filter((c) => !c.archived);
@@ -62,6 +86,7 @@ function AllCandidates() {
     if (statusFilter !== "All") list = list.filter((c) => c.status === statusFilter);
     if (genderFilter !== "All") list = list.filter((c) => c.gender === genderFilter);
     if (eduFilter !== "All") list = list.filter((c) => c.educationLevel === eduFilter);
+    if (categoryFilter !== "All") list = list.filter((c) => categoryFor(overallAverage(c)) === categoryFilter);
     if (promoFilter !== "All") list = list.filter((c) => c.promotionId === promoFilter);
 
     list = [...list].sort((a, b) => {
@@ -76,13 +101,13 @@ function AllCandidates() {
     });
 
     return list;
-  }, [allCandidates, q, statusFilter, genderFilter, eduFilter, promoFilter, sortBy]);
+  }, [allCandidates, q, statusFilter, genderFilter, eduFilter, categoryFilter, promoFilter, sortBy]);
 
-  const hasFilters = q || statusFilter !== "All" || genderFilter !== "All" || eduFilter !== "All" || promoFilter !== "All";
+  const hasFilters = q || statusFilter !== "All" || genderFilter !== "All" || eduFilter !== "All" || categoryFilter !== "All" || promoFilter !== "All";
 
   const clearFilters = () => {
     setQ(""); setStatusFilter("All"); setGenderFilter("All");
-    setEduFilter("All"); setPromoFilter("All"); setSortBy("avg_desc");
+    setEduFilter("All"); setCategoryFilter("All"); setPromoFilter("All"); setSortBy("avg_desc");
   };
 
   // ── Export helpers ────────────────────────────────────────────────
@@ -283,6 +308,24 @@ function AllCandidates() {
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* Category filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 bg-background">
+              {categoryFilter === "All" ? "Category" : categoryFilter}
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
+              <DropdownMenuRadioItem value="All">All Categories</DropdownMenuRadioItem>
+              {CATEGORY_OPTIONS.map((c) => (
+                <DropdownMenuRadioItem key={c} value={c}>{c}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* Promotion filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -375,11 +418,42 @@ function AllCandidates() {
                       <td className="py-2.5 px-3 text-muted-foreground text-xs">{c.email}</td>
                       <td className="py-2.5 px-3 text-xs text-muted-foreground">{c.gender}</td>
                       <td className="py-2.5 px-3 text-xs">{c.educationLevel}</td>
-                      <td className="py-2.5 px-3 text-xs">{promo?.name ?? "—"}</td>
+                      <td className="py-2.5 px-3 text-xs">
+                        {promo ? (
+                          <Link
+                            to="/promotions/$id"
+                            params={{ id: promo.id }}
+                            className="text-blue-600 transition-colors hover:text-orange-500 hover:bg-transparent"
+                          >
+                            {promo.name}
+                          </Link>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="py-2.5 px-3 font-semibold tabular-nums">{a.toFixed(2)}</td>
                       <td className="py-2.5 px-3"><CategoryBadge category={categoryFor(a)} /></td>
                       <td className="py-2.5 px-3"><StatusBadge status={c.status} /></td>
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Edit candidate"
+                          onClick={() => setEditingCandidate(c)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Delete candidate"
+                          onClick={() => {
+                            setDeleteCandidate(c);
+                            setDeleteConfirmText("");
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                         <Button asChild size="sm" variant="ghost">
                           <Link to="/candidates/$id" params={{ id: c.id }}>
                             <ArrowRight className="h-4 w-4" />
@@ -394,6 +468,58 @@ function AllCandidates() {
           )}
         </CardContent>
       </Card>
+
+      <EditCandidateDialog
+        candidate={editingCandidate}
+        open={!!editingCandidate}
+        onOpenChange={(open) => {
+          if (!open) setEditingCandidate(null);
+        }}
+      />
+
+      <AlertDialog
+        open={!!deleteCandidate}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteCandidate(null);
+            setDeleteConfirmText("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete candidate?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteCandidate?.firstName} {deleteCandidate?.lastName}.
+              Type DELETE below to confirm. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <Label htmlFor="delete-confirm">Type DELETE to confirm</Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirmText}
+              onChange={(event) => setDeleteConfirmText(event.target.value)}
+              placeholder="DELETE"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteConfirmText !== "DELETE"}
+              onClick={() => {
+                if (!deleteCandidate) return;
+                hardDeleteCandidate(deleteCandidate.id);
+                setDeleteCandidate(null);
+                setDeleteConfirmText("");
+              }}
+            >
+              Delete candidate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

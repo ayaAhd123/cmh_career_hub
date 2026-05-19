@@ -4,7 +4,8 @@ import { categoryFor, overallAverage } from "@/lib/calc";
 import type { EducationLevel, Category } from "@/lib/types";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI("AIzaSyDDByjY5g584ToqdOEU4wZHmMC14hpAwCo");
+const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 export function useAIAdvisor() {
   const candidates = useStore((s) => s.candidates);
@@ -88,7 +89,11 @@ export function useAIAdvisor() {
 
   const generateAIResponse = async (query: string): Promise<string> => {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      if (!genAI) {
+        console.error("AI key missing: set VITE_GOOGLE_API_KEY in frontend/.env");
+        return "AI is not configured. Please set VITE_GOOGLE_API_KEY in your frontend .env file.";
+      }
+
       const prompt = `You are an AI HR Advisor for CareerHub.
 Here is the current analytics data of our candidates:
 ${JSON.stringify(analytics, null, 2)}
@@ -103,6 +108,7 @@ The user is asking: "${query}"
 
 Provide a helpful, concise, and data-driven response based strictly on the provided data. Use markdown formatting.`;
 
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text();

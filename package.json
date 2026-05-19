@@ -5,6 +5,9 @@
   "workspaces": ["frontend"],
   "scripts": {
     "bootstrap": "bun install",
+    "build": "bun --cwd frontend build && rm -rf dist && cp -r frontend/dist dist",
+    "build:dev": "bun --cwd frontend build:dev && rm -rf dist && cp -r frontend/dist dist",
+    "dev": "bun --cwd frontend dev",
     "dev:frontend": "bun --cwd frontend dev",
     "build:frontend": "bun --cwd frontend build",
     "preview:frontend": "bun --cwd frontend preview",
