@@ -17,6 +17,8 @@ frontend/.vinxi
 frontend/.nitro
 frontend/.wrangler/
 frontend/.dev.vars
+frontend/.env
+frontend/.env.local
 frontend/.DS_Store
 
 # Backend
