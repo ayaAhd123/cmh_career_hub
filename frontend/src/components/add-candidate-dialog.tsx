@@ -20,10 +20,18 @@ import {
 } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import type { EducationLevel } from "@/lib/types";
+import type { EducationLevel, Gender } from "@/lib/types";
 
 const phoneRe = /^\+?[\d\s().-]{8,20}$/;
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
 export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
   const [open, setOpen] = useState(false);
@@ -41,6 +49,8 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     diplomaName: string;
     diplomaAverage: number | string;
     photo: string;
+    photoFile: File | null;
+    photoPreview: string;
   }>({
     firstName: "",
     lastName: "",
@@ -53,9 +63,11 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     diplomaName: "",
     diplomaAverage: "",
     photo: "",
+    photoFile: null,
+    photoPreview: "",
   });
 
-  const submit = () => {
+  const submit = async () => {
     if (!form.firstName || !form.lastName) return toast.error("Name required");
     if (!emailRe.test(form.email)) return toast.error("Invalid email");
     if (!phoneRe.test(form.phone)) return toast.error("Invalid phone");
@@ -70,19 +82,32 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     if (form.diplomaAverage === "" || Number(form.diplomaAverage) < 0 || Number(form.diplomaAverage) > 20)
       return toast.error("Diploma average must be 0-20");
 
+    const photoValue = form.photoFile ? await readFileAsDataUrl(form.photoFile) : form.photo;
+
     const res = add({
       ...form,
       age: Number(form.age),
       diplomaAverage: Number(form.diplomaAverage),
+      photo: photoValue,
       promotionId,
     });
     if (!res.ok) return toast.error(res.error ?? "Failed");
     toast.success("Candidate added");
     setOpen(false);
     setForm({
-      firstName: "", lastName: "", email: "", phone: "",
-      recruitmentDate: "", educationLevel: "", gender: "",
-      age: "", diplomaName: "", diplomaAverage: "", photo: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      recruitmentDate: "",
+      educationLevel: "",
+      gender: "",
+      age: "",
+      diplomaName: "",
+      diplomaAverage: "",
+      photo: "",
+      photoFile: null,
+      photoPreview: "",
     });
   };
 
@@ -93,11 +118,11 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
           <Plus className="mr-2 h-4 w-4" /> Add Candidate
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add Candidate</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 sm:grid-cols-2 py-2">
+        <div className="grid gap-4 sm:grid-cols-2 py-2 max-h-[65vh] overflow-y-auto pr-2">
           <div>
             <Label>First Name *</Label>
             <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="Prénom" />
@@ -152,8 +177,26 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
             <Input type="number" min={0} max={20} step={0.1} value={form.diplomaAverage} onChange={(e) => setForm({ ...form, diplomaAverage: e.target.value === "" ? "" : parseFloat(e.target.value) || "" })} placeholder="12" />
           </div>
           <div className="sm:col-span-2">
-            <Label>Photo URL (optional)</Label>
-            <Input value={form.photo} onChange={(e) => setForm({ ...form, photo: e.target.value })} placeholder="https://..." />
+            <Label>Photo (optional)</Label>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                setForm({
+                  ...form,
+                  photoFile: file,
+                  photoPreview: file ? URL.createObjectURL(file) : "",
+                });
+              }}
+            />
+            {form.photoPreview ? (
+              <img
+                src={form.photoPreview}
+                alt="Photo preview"
+                className="mt-3 h-24 w-24 rounded-full object-cover"
+              />
+            ) : null}
           </div>
         </div>
         <DialogFooter>
