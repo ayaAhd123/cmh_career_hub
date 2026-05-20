@@ -39,7 +39,7 @@ export function AddPromotionDialog() {
           <Plus className="mr-2 h-4 w-4" /> New Promotion
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Create Promotion</DialogTitle>
         </DialogHeader>
