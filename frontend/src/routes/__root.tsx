@@ -150,7 +150,7 @@ function RootComponent() {
               <RemindersPopover />
               <ProfileMenu />
             </header>
-            <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto">
+            <main className="flex-1 p-6 pb-24 max-w-[1600px] w-full mx-auto">
               <Outlet />
             </main>
           </div>

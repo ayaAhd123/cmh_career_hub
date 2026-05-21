@@ -1,3 +1,4 @@
+import React from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 
-const items = [
+const items: { title: string; url: string; icon: React.ElementType; soon?: boolean }[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Promotions", url: "/promotions", icon: GraduationCap },
   { title: "All Candidates", url: "/candidates", icon: Users },

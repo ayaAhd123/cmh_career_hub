@@ -46,7 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddCandidateDialog } from "@/components/add-candidate-dialog";
 import { EditCandidateDialog } from "@/components/edit-candidate-dialog";
 import {
-  exportPromotionPDF, exportPromotionExcel, exportPromotionCSV, exportPromotionHTML,
+  exportPromotionPDF, exportPromotionExcel, exportPromotionHTML,
 } from "@/lib/exports";
 
 export const Route = createFileRoute("/promotions/$id")({
@@ -400,7 +400,6 @@ function PromotionDetail() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => exportPromotionPDF(promotion, candidates)}>PDF</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => exportPromotionExcel(promotion, candidates)}>Excel</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportPromotionCSV(promotion, candidates)}>CSV</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => exportPromotionHTML(promotion, candidates)}>HTML</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

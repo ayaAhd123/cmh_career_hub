@@ -100,7 +100,7 @@ function AIAdvisor() {
               onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
               className="text-sm"
             />
-            <Button onClick={handleSendMessage} size="sm" className="gap-2" disabled={isTyping}>
+            <Button onClick={() => handleSendMessage()} size="sm" className="gap-2" disabled={isTyping}>
               <Send className="h-4 w-4" /> Send
             </Button>
           </div>

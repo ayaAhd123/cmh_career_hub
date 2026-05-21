@@ -9,7 +9,7 @@ import {
 import { FileText, Download } from "lucide-react";
 import {
   exportCandidatePDF, exportCandidateExcel, exportCandidateHTML,
-  exportPromotionPDF, exportPromotionExcel, exportPromotionCSV, exportPromotionHTML,
+  exportPromotionPDF, exportPromotionExcel, exportPromotionHTML,
 } from "@/lib/exports";
 import { SearchSelect } from "@/components/search-select";
 
@@ -25,7 +25,7 @@ function Reports() {
   const [candId, setCandId] = useState<string>("");
   const [candFmt, setCandFmt] = useState<"pdf" | "xlsx" | "html">("pdf");
   const [promoId, setPromoId] = useState<string>("");
-  const [promoFmt, setPromoFmt] = useState<"pdf" | "xlsx" | "csv" | "html">("pdf");
+  const [promoFmt, setPromoFmt] = useState<"pdf" | "xlsx" | "html">("pdf");
 
   const candOpts = useMemo(
     () =>
@@ -55,7 +55,6 @@ function Reports() {
     const cands = candidates.filter((c) => c.promotionId === p.id);
     if (promoFmt === "pdf") exportPromotionPDF(p, cands);
     if (promoFmt === "xlsx") exportPromotionExcel(p, cands);
-    if (promoFmt === "csv") exportPromotionCSV(p, cands);
     if (promoFmt === "html") exportPromotionHTML(p, cands);
   };
 
@@ -108,7 +107,6 @@ function Reports() {
             <SelectContent>
               <SelectItem value="pdf">PDF</SelectItem>
               <SelectItem value="xlsx">Excel</SelectItem>
-              <SelectItem value="csv">CSV</SelectItem>
               <SelectItem value="html">HTML</SelectItem>
             </SelectContent>
           </Select>

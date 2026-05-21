@@ -39,7 +39,7 @@ export function useAIAdvisor() {
     };
 
     total.forEach((c) => {
-      educationDistribution[c.educationLevel] = (educationDistribution[c.educationLevel] || 0) + 1;
+      educationDistribution[c.educationLevel as EducationLevel] = (educationDistribution[c.educationLevel as EducationLevel] || 0) + 1;
       const cat = categoryFor(overallAverage(c));
       categoryDistribution[cat] = (categoryDistribution[cat] || 0) + 1;
 
