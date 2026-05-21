@@ -398,26 +398,40 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
 
   // Color legend
   let legendY = (doc as any).lastAutoTable.finalY + 12;
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setTextColor(30);
+  doc.setFont("helvetica", "bold");
   doc.text('Color Legend:', 14, legendY);
+  doc.setFont("helvetica", "normal");
   legendY += 6;
-  const legendItems: { cat: Category; label: string }[] = [
-    { cat: 'Excellent', label: 'Excellent  — Avg ≥ 4.5' },
-    { cat: 'Good',      label: 'Good       — Avg ≥ 3.5' },
-    { cat: 'Passable',  label: 'Passable   — Avg ≥ 2.5' },
-    { cat: 'Critical',  label: 'Critical   — Avg < 2.5' },
+  const legendDefs = [
+    { cat: 'Excellent', label: 'Overall average ≥ 4.5 / 5' },
+    { cat: 'Good',      label: 'Overall average ≥ 3.5 / 5' },
+    { cat: 'Passable',  label: 'Overall average ≥ 2.5 / 5' },
+    { cat: 'Critical',  label: 'Overall average < 2.5 / 5' },
   ];
-  legendItems.forEach(({ cat, label }) => {
-    const rgb = categoryRgb(cat);
-    if (rgb) {
-      doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-      doc.roundedRect(14, legendY - 4, 8, 5, 1, 1, 'F');
+  legendDefs.forEach(({ cat, label }) => {
+    const darkRgb = categoryRgb(cat as Category);
+    const lightRgb = categoryLightRgb(cat as Category);
+    if (darkRgb && lightRgb) {
+      // Light background strip
+      doc.setFillColor(lightRgb[0], lightRgb[1], lightRgb[2]);
+      doc.roundedRect(14, legendY - 4, 80, 7, 1, 1, 'F');
+      
+      // Dark swatch
+      doc.setFillColor(darkRgb[0], darkRgb[1], darkRgb[2]);
+      doc.roundedRect(16, legendY - 2.5, 4, 4, 0.5, 0.5, 'F');
+      
+      doc.setTextColor(30);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(cat, 23, legendY + 1);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80);
+      doc.text(`— ${label}`, 42, legendY + 1);
     }
-    doc.setTextColor(30);
-    doc.setFontSize(9);
-    doc.text(label, 26, legendY);
-    legendY += 7;
+    legendY += 9;
   });
 
   doc.save(`${p.id}_promotion_report.pdf`);
