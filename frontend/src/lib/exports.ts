@@ -300,7 +300,7 @@ ${disciplineRows(c).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join
 
 
 export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: "landscape" });
   doc.setFontSize(20);
   doc.setTextColor(0, 102, 204);
   doc.text("CareerHub - Promotion Report", 14, 20);
@@ -388,9 +388,9 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
     headStyles: { fillColor: [0, 102, 204], textColor: 255 },
     styles: { fontSize: 7, cellPadding: 2 },
     columnStyles: {
-      1: { cellWidth: 40 },
-      12: { halign: 'center' },
-      13: { halign: 'center' },
+      1: { cellWidth: 45 }, // Name
+      12: { halign: 'center', cellWidth: 15 }, // Avg /5
+      13: { halign: 'center', cellWidth: 15 }, // Classement
     }
   });
 
