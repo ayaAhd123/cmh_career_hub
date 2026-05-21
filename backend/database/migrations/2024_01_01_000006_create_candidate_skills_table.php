@@ -22,7 +22,14 @@ return new class extends Migration
             $table->index(['candidate_id', 'category']);
         });
 
-        DB::statement('ALTER TABLE candidate_skills ADD CONSTRAINT check_skill_score CHECK (score >= 0 AND score <= 5)');
+        // Some DBs (SQLite) don't support ALTER TABLE ... ADD CONSTRAINT.
+        try {
+            if (DB::getDriverName() !== 'sqlite') {
+                DB::statement('ALTER TABLE candidate_skills ADD CONSTRAINT check_skill_score CHECK (score >= 0 AND score <= 5)');
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 
     public function down(): void

@@ -28,22 +28,33 @@ function SettingsPage() {
   const promotions = useStore((s) => s.promotions);
   const archived = useMemo(() => allCandidates.filter((c) => c.archived), [allCandidates]);
 
-  const [name, setName] = useState(profile.name);
-  const [email, setEmail] = useState(profile.email);
+  const [name, setName] = useState(profile?.name ?? '');
+  const [email, setEmail] = useState(profile?.email ?? '');
+
+  useEffect(() => {
+    if (profile) {
+      setName(profile.name);
+      setEmail(profile.email);
+    }
+  }, [profile]);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     if (!name.trim()) return toast.error("Name required");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast.error("Invalid email");
-    updateProfile({ name: name.trim(), email: email.trim() });
-    toast.success("Profile updated");
+    try {
+      await updateProfile({ name: name.trim(), email: email.trim() });
+      toast.success("Profile updated");
+    } catch (err) {
+      toast.error("Failed to update profile");
+    }
   };
 
-  const savePassword = () => {
+  const savePassword = async () => {
     if (next !== confirmPwd) return toast.error("Passwords don't match");
-    const r = changePassword(current, next);
+    const r = await changePassword(current, next);
     if (!r.ok) return toast.error(r.error ?? "Failed");
     toast.success("Password changed");
     setCurrent(""); setNext(""); setConfirmPwd("");
@@ -55,8 +66,8 @@ function SettingsPage() {
         <h1 className="text-3xl font-bold">Settings</h1>
         <Button
           variant="outline"
-          onClick={() => {
-            logout();
+          onClick={async () => {
+            await logout();
             nav({ to: "/login" });
           }}
         >

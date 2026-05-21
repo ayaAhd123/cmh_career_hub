@@ -26,12 +26,15 @@ function LoginPage() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(email, password)) {
-      toast.success("Welcome back!");
-      nav({ to: "/" });
-    } else {
-      toast.error("Invalid credentials");
-    }
+    (async () => {
+      const ok = await login(email, password);
+      if (ok) {
+        toast.success("Welcome back!");
+        nav({ to: "/" });
+      } else {
+        toast.error("Invalid credentials");
+      }
+    })();
   };
 
   return (

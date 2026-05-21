@@ -21,7 +21,15 @@ return new class extends Migration
             $table->index('module_id');
         });
 
-        DB::statement('ALTER TABLE module_grades ADD CONSTRAINT check_score CHECK (score >= 0 AND score <= 20)');
+        // Some DBs (SQLite) don't support ALTER TABLE ... ADD CONSTRAINT.
+        // Only run the statement on drivers that support it.
+        try {
+            if (DB::getDriverName() !== 'sqlite') {
+                DB::statement('ALTER TABLE module_grades ADD CONSTRAINT check_score CHECK (score >= 0 AND score <= 20)');
+            }
+        } catch (\Throwable $e) {
+            // ignore if DB doesn't support adding constraints this way
+        }
     }
 
     public function down(): void
