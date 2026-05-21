@@ -369,18 +369,16 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
 
   let y = (doc as any).lastAutoTable.finalY + 8;
   const groupHead = [
-    { content: 'Category' },
-    { content: 'Name' },
+    { content: 'Category', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+    { content: 'Name', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
     { content: 'Discipline', colSpan: 4, styles: { halign: 'center' } },
     { content: 'Work Skills', colSpan: 6, styles: { halign: 'center' } },
-    { content: 'Avg /5' },
-    { content: 'Classement' },
+    { content: 'Avg /5', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+    { content: 'Classement', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
   ];
   const subHead = [
-    'Category', 'Name',
     'Discipline', 'Motivation', 'Communication', 'Listening',
     'Initiative', 'Analysis', 'Organization', 'Intellectual', 'Pace', 'Speed',
-    'Avg /5', 'Classement',
   ];
 
   autoTable(doc, {
