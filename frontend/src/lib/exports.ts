@@ -82,10 +82,10 @@ export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
   const avg = overallAverage(c);
   doc.setFontSize(20);
   doc.setTextColor(0, 102, 204);
-  doc.text("CareerHub — Candidate Report", 14, 20);
+  doc.text("CareerHub - Candidate Report", 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(`by CMH Cloud Marketing Hub · Generated ${formatDate(new Date().toISOString())}`, 14, 26);
+  doc.text(`by CMH Cloud Marketing Hub - Generated ${formatDate(new Date().toISOString())}`, 14, 26);
 
   doc.setFontSize(14);
   doc.setTextColor(30);
@@ -303,15 +303,15 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
   const doc = new jsPDF();
   doc.setFontSize(20);
   doc.setTextColor(0, 102, 204);
-  doc.text("CareerHub — Promotion Report", 14, 20);
+  doc.text("CareerHub - Promotion Report", 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(`Generated ${formatDate(new Date().toISOString())}`, 14, 26);
   doc.setFontSize(14);
   doc.setTextColor(30);
-  doc.text(`${p.id} — ${p.name}`, 14, 38);
+  doc.text(`${p.id} - ${p.name}`, 14, 38);
   doc.setFontSize(10);
-  doc.text(`Period: ${formatDate(p.startDate)} → ${formatDate(p.endDate)}`, 14, 45);
+  doc.text(`Period: ${formatDate(p.startDate)} to ${formatDate(p.endDate)}`, 14, 45);
 
   const visibleCandidates = cands.filter((c) => c.status !== "Dismissed" && c.status !== "Terminated");
 
@@ -405,9 +405,9 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
   doc.setFont("helvetica", "normal");
   legendY += 6;
   const legendDefs = [
-    { cat: 'Excellent', label: 'Overall average ≥ 4.5 / 5' },
-    { cat: 'Good',      label: 'Overall average ≥ 3.5 / 5' },
-    { cat: 'Passable',  label: 'Overall average ≥ 2.5 / 5' },
+    { cat: 'Excellent', label: 'Overall average >= 4.5 / 5' },
+    { cat: 'Good',      label: 'Overall average >= 3.5 / 5' },
+    { cat: 'Passable',  label: 'Overall average >= 2.5 / 5' },
     { cat: 'Critical',  label: 'Overall average < 2.5 / 5' },
   ];
   legendDefs.forEach(({ cat, label }) => {
@@ -429,7 +429,7 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
       
       doc.setFont("helvetica", "normal");
       doc.setTextColor(80);
-      doc.text(`— ${label}`, 42, legendY + 1);
+      doc.text(`- ${label}`, 42, legendY + 1);
     }
     legendY += 9;
   });
