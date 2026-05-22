@@ -108,6 +108,20 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 function PromotionDetail() {
   const { id } = Route.useParams();
   const promotion = useStore((s) => s.promotions.find((p) => p.id === id));
+  const loadMissing = async () => {
+    if (!promotion) {
+      try {
+        const p = await fetch(`${API_BASE}/api/v1/promotions/${id}`).then(res => res.json());
+        // Assume API returns same shape as store expects
+        useStore.getState().promotions.push(p);
+      } catch (e) {
+        console.error('Failed to load promotion', e);
+      }
+    }
+  };
+  useEffect(() => {
+    loadMissing();
+  }, [id]);
   const allCandidates = useStore((s) => s.candidates);
   const candidates = useMemo(
     () => allCandidates.filter((c) => c.promotionId === id && !c.archived),

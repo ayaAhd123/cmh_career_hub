@@ -20,5 +20,6 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('1234'),
             'role' => 'Admin',
         ]);
+        $this->call(PromotionSeeder::class);
     }
 }

@@ -23,13 +23,24 @@ export function AddPromotionDialog() {
   const add = useStore((s) => s.addPromotion);
   const nav = useNavigate();
 
-  const submit = () => {
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
     if (!name.trim()) return toast.error("Name is required");
-    const p = add({ name: name.trim(), startDate });
-    toast.success(`Promotion ${p.id} created`);
-    setOpen(false);
-    setName("");
-    nav({ to: "/promotions/$id", params: { id: p.id } });
+    setLoading(true);
+    try {
+      const p = await add({ name: name.trim(), startDate });
+      // Ensure state update propagates
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      toast.success(`Promotion ${p.id} created`);
+      setOpen(false);
+      setName("");
+      nav({ to: "/promotions/$id", params: { id: p.id } });
+    } catch (e) {
+      toast.error((e as Error).message || "Failed to create promotion");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
