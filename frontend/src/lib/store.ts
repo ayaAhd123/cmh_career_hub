@@ -52,6 +52,7 @@ interface State {
   updatePromotion: (id: string, patch: Partial<Promotion>) => Promise<void>;
   archivePromotion: (id: string) => Promise<void>;
   deletePromotion: (id: string) => Promise<void>;
+  permanentDeletePromotion: (id: string) => Promise<void>;
 
   // Candidates — still local for now
   addCandidate: (
@@ -154,12 +155,14 @@ export const useStore = create<State>()(
         if (!promo) return;
         const dbId = (promo as any).dbId || id;
 
-        const updated: Promotion = await apiFetch(`/promotions/${dbId}`, {
-          method: "PUT",
-          body: JSON.stringify({ status: "Archived" }),
+        await apiFetch(`/promotions/${dbId}/archive`, {
+          method: "POST",
+          body: JSON.stringify({ confirm_one: true, confirm_two: true }),
         });
+        
+        // Optimistically update status to Archived
         set((s) => ({
-          promotions: s.promotions.map((p) => (p.id === id ? updated : p)),
+          promotions: s.promotions.map((p) => (p.id === id ? { ...p, status: "Archived", archived: true } : p)),
         }));
       },
 
@@ -169,6 +172,21 @@ export const useStore = create<State>()(
         const dbId = (promo as any).dbId || id;
 
         await apiFetch(`/promotions/${dbId}`, { method: "DELETE" });
+        set((s) => ({
+          promotions: s.promotions.filter((p) => p.id !== id),
+          candidates: s.candidates.filter((c) => c.promotionId !== id),
+        }));
+      },
+
+      permanentDeletePromotion: async (id) => {
+        const promo = get().promotions.find((p) => p.id === id);
+        if (!promo) return;
+        const dbId = (promo as any).dbId || id;
+
+        await apiFetch(`/promotions/${dbId}/force-delete`, {
+          method: "DELETE",
+          body: JSON.stringify({ confirm_one: true, confirm_two: true }),
+        });
         set((s) => ({
           promotions: s.promotions.filter((p) => p.id !== id),
           candidates: s.candidates.filter((c) => c.promotionId !== id),

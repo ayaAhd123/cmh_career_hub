@@ -377,16 +377,7 @@ function PromotionsList() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem 
-                              className="cursor-pointer" 
-                              onClick={() => {
-                                updatePromotion(p.id, { archived: true });
-                                toast.success("Promotion archived");
-                              }}
-                            >
-                              <Archive className="mr-2 h-4 w-4" /> Archive Promotion
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+
                             <DropdownMenuItem 
                               className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10" 
                               onClick={() => setDeleteId(p.id)}

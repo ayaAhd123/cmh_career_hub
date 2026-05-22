@@ -19,6 +19,10 @@ Route::prefix('v1')->group(function () {
         Route::put('auth/profile', [AuthController::class, 'updateProfile']);
         Route::post('auth/change-password', [AuthController::class, 'changePassword']);
 
+        // Custom Promotion endpoints
+        Route::post('promotions/{promotion}/archive', [PromotionController::class, 'archive']);
+        Route::delete('promotions/{promotion}/force-delete', [PromotionController::class, 'forceDelete'])->withTrashed();
+
         // Promotions CRUD
         Route::apiResource('promotions', PromotionController::class);
     });

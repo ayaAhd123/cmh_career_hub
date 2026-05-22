@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Promotion;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
 
 class PromotionController extends Controller
 {
@@ -74,9 +75,64 @@ class PromotionController extends Controller
     /**
      * Remove the specified promotion (soft delete).
      */
+    /**
+     * Remove the specified promotion (soft delete).
+     */
     public function destroy(Promotion $promotion)
     {
         $promotion->delete();
+        return response()->noContent();
+    }
+
+    /**
+     * Archive (soft delete) a promotion with double validation.
+     *
+     * The request must include `confirm_one` and `confirm_two` set to true.
+     */
+    public function archive(Request $request, Promotion $promotion)
+    {
+        $validator = Validator::make($request->all(), [
+            'confirm_one' => ['required', 'accepted'],
+            'confirm_two' => ['required', 'accepted'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Double confirmation required for archiving.'], 422);
+        }
+
+        // Mark as archived and soft delete
+        $promotion->status = 'Archived';
+        $promotion->save();
+        $promotion->delete();
+
+        return response()->noContent();
+    }
+
+    /**
+     * Permanently delete a promotion that has been archived, with double validation.
+     *
+     * The request must include `confirm_one` and `confirm_two` set to true.
+     */
+    public function forceDelete(Request $request, Promotion $promotion)
+    {
+        $validator = Validator::make($request->all(), [
+            'confirm_one' => ['required', 'accepted'],
+            'confirm_two' => ['required', 'accepted'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Double confirmation required for permanent deletion.'], 422);
+        }
+
+        if (! $promotion->trashed()) {
+            return response()->json(['message' => 'Promotion must be archived before permanent deletion.'], 400);
+        }
+
+        $promotion->status = 'Deleted';
+        $promotion->save();
+        // Since it's already trashed, calling delete() again might not be necessary, but just in case:
+        $promotion->delete();
+
         return response()->noContent();
     }
 
@@ -97,4 +153,7 @@ class PromotionController extends Controller
             'dbId'      => $p->id,
         ];
     }
+
+    
+
 }

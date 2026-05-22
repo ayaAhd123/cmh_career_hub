@@ -8,6 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { LogOut, User, Lock, Database, Building2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — CareerHub" }] }),
@@ -153,12 +164,31 @@ function SettingsPage() {
                       <Button size="sm" variant="outline" onClick={() => { restore(c.id); toast.success("Restored"); }}>
                         Restore
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => {
-                        if (confirm("Permanently delete?")) {
-                          hardDelete(c.id);
-                          toast.success("Deleted");
-                        }
-                      }}>Delete</Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="destructive">Delete</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Permanently delete?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete the candidate.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => {
+                                hardDelete(c.id);
+                                toast.success("Deleted");
+                              }}
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 );
@@ -173,17 +203,33 @@ function SettingsPage() {
           <CardTitle className="flex items-center gap-2"><Database className="h-4 w-4" /> Data</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              if (confirm("Reset all data? This cannot be undone.")) {
-                reset();
-                toast.success("Reset. Refresh to reseed sample data.");
-              }
-            }}
-          >
-            Reset all data
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">
+                Reset all data
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reset all data?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This cannot be undone. All your local data will be wiped out.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => {
+                    reset();
+                    toast.success("Reset. Refresh to reseed sample data.");
+                  }}
+                >
+                  Confirm Reset
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <p className="text-xs text-muted-foreground mt-2">
             All data is stored locally in your browser (localStorage).
           </p>

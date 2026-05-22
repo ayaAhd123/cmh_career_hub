@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,17 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { AddCandidateDialog } from "@/components/add-candidate-dialog";
 import { EditCandidateDialog } from "@/components/edit-candidate-dialog";
 import {
@@ -135,6 +146,9 @@ function PromotionDetail() {
   const [filterCat, setFilterCat] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [confirmOne, setConfirmOne] = useState(false);
+  const [confirmTwo, setConfirmTwo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editingCandidate = candidates.find((c) => c.id === editingCandidateId) ?? null;
@@ -417,18 +431,57 @@ function PromotionDetail() {
                   <DropdownMenuItem onClick={() => exportPromotionHTML(promotion, candidates)}>HTML</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (confirm("Archive this promotion?")) {
-                    archive(promotion.id);
-                    nav({ to: "/" });
-                  }
-                }}
-              >
-                Archive
-              </Button>
+              <Dialog open={archiveDialogOpen} onOpenChange={(open) => {
+                setArchiveDialogOpen(open);
+                if (!open) {
+                  setConfirmOne(false);
+                  setConfirmTwo(false);
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="destructive" size="sm">
+                    Archive
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Archive Promotion</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to archive this promotion? This action requires double confirmation.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4 space-y-4">
+                    <div className="flex items-start space-x-3">
+                      <Checkbox id="confirmOne" checked={confirmOne} onCheckedChange={(c) => setConfirmOne(!!c)} />
+                      <Label htmlFor="confirmOne" className="leading-tight">
+                        I confirm that this promotion should be archived.
+                      </Label>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <Checkbox id="confirmTwo" checked={confirmTwo} onCheckedChange={(c) => setConfirmTwo(!!c)} />
+                      <Label htmlFor="confirmTwo" className="leading-tight">
+                        I understand that candidates will be hidden from the main view.
+                      </Label>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setArchiveDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      disabled={!confirmOne || !confirmTwo}
+                      onClick={() => {
+                        archive(promotion.id);
+                        setArchiveDialogOpen(false);
+                        nav({ to: "/" });
+                      }}
+                    >
+                      Confirm Archive
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
           <div>

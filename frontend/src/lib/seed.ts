@@ -1,4 +1,4 @@
-import { addDays, format, subDays, differenceInYears } from "date-fns";
+import { addDays, format, subDays, differenceInYears, parseISO } from "date-fns";
 import { useStore } from "./store";
 import type { EducationLevel, Skills } from "./types";
 
@@ -11,7 +11,7 @@ const rand = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 const randF = (min: number, max: number, dec = 1) =>
   Math.round((Math.random() * (max - min) + min) * 10 ** dec) / 10 ** dec;
 
-export const seedSampleData = () => {
+export const seedSampleData = async () => {
   const s = useStore.getState();
   
   // Force wipe the massive dataset so we can revert to the simple one
@@ -24,10 +24,10 @@ export const seedSampleData = () => {
   const today = new Date();
   
   // Create 3 simple promotions, including reminder-friendly dates
-  const p1 = s.addPromotion({ name: "Web Dev Bootcamp 2024", startDate: format(subDays(today, 60), "yyyy-MM-dd") });
-  const p2 = s.addPromotion({ name: "Data Analysis Q3", startDate: format(subDays(today, 30), "yyyy-MM-dd") });
-  const p3 = s.addPromotion({ name: "UI/UX Masterclass", startDate: format(addDays(today, 4), "yyyy-MM-dd") });
-  const p4 = s.addPromotion({ name: "Marketing Sprint", startDate: format(subDays(today, 20), "yyyy-MM-dd") });
+  const p1 = await s.addPromotion({ name: "Web Dev Bootcamp 2024", startDate: format(subDays(today, 60), "yyyy-MM-dd") });
+  const p2 = await s.addPromotion({ name: "Data Analysis Q3", startDate: format(subDays(today, 30), "yyyy-MM-dd") });
+  const p3 = await s.addPromotion({ name: "UI/UX Masterclass", startDate: format(addDays(today, 4), "yyyy-MM-dd") });
+  const p4 = await s.addPromotion({ name: "Marketing Sprint", startDate: format(subDays(today, 20), "yyyy-MM-dd") });
 
   const promos = [
     { id: p1.id, start: p1.startDate, count: 8 },
@@ -56,7 +56,7 @@ export const seedSampleData = () => {
         lastName: ln,
         email,
         phone: `+212 6${Math.floor(10000000 + Math.random() * 89999999)}`,
-        recruitmentDate: format(subDays(new Date(promo.start), Math.floor(Math.random() * 20)), "yyyy-MM-dd"),
+        recruitmentDate: format(subDays(parseISO(promo.start), Math.floor(Math.random() * 20)), "yyyy-MM-dd"),
         educationLevel: rand(educations),
         gender,
         age,
