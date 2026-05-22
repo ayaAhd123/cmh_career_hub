@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use App\Models\User;
 
 class AuthController extends Controller
@@ -71,9 +72,9 @@ class AuthController extends Controller
         if (!$user) return response()->json(['message' => 'Unauthenticated'], 401);
 
         $data = $request->only(['name', 'email']);
-        $validator = Validator::make($data, [
+                $validator = Validator::make($data, [
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
         ]);
 
         if ($validator->fails()) {
