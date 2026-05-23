@@ -7,6 +7,7 @@ use App\Models\Candidate;
 use App\Services\CandidateExportService;
 use App\Services\CandidateFormatter;
 use App\Services\CandidateQueryService;
+use App\Services\CandidateWriteService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -16,6 +17,7 @@ class CandidateController extends Controller
         private readonly CandidateQueryService $queryService,
         private readonly CandidateExportService $exportService,
         private readonly CandidateFormatter $formatter,
+        private readonly CandidateWriteService $writeService,
     ) {}
 
     public function index(Request $request)
@@ -63,26 +65,15 @@ class CandidateController extends Controller
             'state' => 'Active',
         ]);
 
-        $candidate->load([
-            'promotion',
-            'skills',
-            'moduleGrades',
-            'promotion.modules' => fn ($q) => $q->orderBy('module_order'),
-        ]);
+        $this->writeService->seedDefaultSkills($candidate);
+        $this->writeService->logRecruited($candidate);
 
-        return response()->json($this->formatter->formatListItem($candidate), 201);
+        return response()->json($this->detailResponse($candidate), 201);
     }
 
     public function show(Candidate $candidate)
     {
-        $candidate->load([
-            'promotion',
-            'skills',
-            'moduleGrades',
-            'promotion.modules' => fn ($q) => $q->orderBy('module_order'),
-        ]);
-
-        return response()->json($this->formatter->formatDetail($candidate));
+        return response()->json($this->detailResponse($candidate));
     }
 
     public function export(Request $request)
@@ -139,14 +130,56 @@ class CandidateController extends Controller
             'diploma_average' => $validated['diplomaAverage'] ?? $candidate->diploma_average,
         ]);
 
-        $candidate->load([
-            'promotion',
-            'skills',
-            'moduleGrades',
-            'promotion.modules' => fn ($q) => $q->orderBy('module_order'),
+        $this->writeService->logProfileUpdated($candidate);
+
+        return response()->json($this->detailResponse($candidate));
+    }
+
+    public function updateSkills(Request $request, Candidate $candidate)
+    {
+        $validated = $request->validate([
+            'skills' => 'required|array',
+            'skills.discipline' => 'required|array',
+            'skills.discipline.discipline' => 'required|numeric|min:0|max:5',
+            'skills.discipline.motivation' => 'required|numeric|min:0|max:5',
+            'skills.discipline.communication' => 'required|numeric|min:0|max:5',
+            'skills.discipline.listening' => 'required|numeric|min:0|max:5',
+            'skills.work' => 'required|array',
+            'skills.work.initiative' => 'required|numeric|min:0|max:5',
+            'skills.work.analysis' => 'required|numeric|min:0|max:5',
+            'skills.work.organization' => 'required|numeric|min:0|max:5',
+            'skills.work.intellectual' => 'required|numeric|min:0|max:5',
+            'skills.work.pace' => 'required|numeric|min:0|max:5',
+            'skills.work.speed' => 'required|numeric|min:0|max:5',
         ]);
 
-        return response()->json($this->formatter->formatListItem($candidate));
+        $this->writeService->syncSkills($candidate, $validated['skills']);
+
+        return response()->json($this->detailResponse($candidate));
+    }
+
+    public function updateModuleGrades(Request $request, Candidate $candidate)
+    {
+        $validated = $request->validate([
+            'modules' => 'required|array',
+            'modules.*.id' => 'required|integer|min:1|max:20',
+            'modules.*.score' => 'required|numeric|min:0|max:20',
+        ]);
+
+        $this->writeService->syncModuleGrades($candidate, $validated['modules']);
+
+        return response()->json($this->detailResponse($candidate));
+    }
+
+    public function updateStatus(Request $request, Candidate $candidate)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:Active,Graduated,Dismissed,Terminated,Archived',
+        ]);
+
+        $this->writeService->updateStatus($candidate, $validated['status']);
+
+        return response()->json($this->detailResponse($candidate));
     }
 
     public function destroy(Request $request, Candidate $candidate)
@@ -155,9 +188,22 @@ class CandidateController extends Controller
             'confirm' => 'required|in:DELETE',
         ]);
 
+        $this->writeService->logArchived($candidate);
         $candidate->delete();
 
         return response()->noContent();
+    }
+
+    private function detailResponse(Candidate $candidate): array
+    {
+        $candidate->load([
+            'promotion',
+            'skills',
+            'moduleGrades',
+            'promotion.modules' => fn ($q) => $q->orderBy('module_order'),
+        ]);
+
+        return $this->formatter->formatDetail($candidate);
     }
 
     private function validatedFilters(Request $request): array

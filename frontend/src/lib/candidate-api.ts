@@ -162,7 +162,7 @@ export async function fetchCandidates(
 export async function updateCandidateApi(
   id: string,
   payload: Partial<Candidate>,
-): Promise<CandidateListItem> {
+): Promise<CandidateDetail> {
   const res = await fetch(`${API_BASE}/api/v1/candidates/${id}`, {
     method: "PUT",
     headers: authHeaders(),
@@ -172,6 +172,60 @@ export async function updateCandidateApi(
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.message || "Failed to update candidate");
+  }
+
+  return data;
+}
+
+export async function updateCandidateSkillsApi(
+  id: string,
+  skills: Skills,
+): Promise<CandidateDetail> {
+  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}/skills`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify({ skills }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to update skills");
+  }
+
+  return data;
+}
+
+export async function updateCandidateModuleGradesApi(
+  id: string,
+  modules: ModuleScore[],
+): Promise<CandidateDetail> {
+  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}/module-grades`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify({ modules }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to update module scores");
+  }
+
+  return data;
+}
+
+export async function updateCandidateStatusApi(
+  id: string,
+  status: CandidateStatus,
+): Promise<CandidateDetail> {
+  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}/status`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ status }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to update status");
   }
 
   return data;

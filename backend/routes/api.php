@@ -26,6 +26,9 @@ Route::prefix('v1')->group(function () {
         Route::get('reminders', [RemindersController::class, 'index']);
 
         Route::get('candidates/export', [CandidateController::class, 'export']);
+        Route::put('candidates/{candidate}/skills', [CandidateController::class, 'updateSkills']);
+        Route::put('candidates/{candidate}/module-grades', [CandidateController::class, 'updateModuleGrades']);
+        Route::patch('candidates/{candidate}/status', [CandidateController::class, 'updateStatus']);
         Route::apiResource('candidates', CandidateController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 
         // Custom Promotion endpoints

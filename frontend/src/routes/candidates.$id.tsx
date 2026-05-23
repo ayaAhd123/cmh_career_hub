@@ -1,13 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import {
   candidateDetailToCandidate,
   deleteCandidateApi,
   fetchCandidateApi,
   updateCandidateApi,
+  updateCandidateModuleGradesApi,
+  updateCandidateSkillsApi,
+  updateCandidateStatusApi,
 } from "@/lib/candidate-api";
-import type { Candidate } from "@/lib/types";
+import type { Candidate, ModuleScore, Skills } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +91,48 @@ function CandidateDetail() {
     void loadCandidate();
   }, [loadPromotions, loadCandidate]);
 
+  useEffect(() => {
+    return () => {
+      if (skillsSaveTimer.current) clearTimeout(skillsSaveTimer.current);
+      if (modulesSaveTimer.current) clearTimeout(modulesSaveTimer.current);
+    };
+  }, []);
+
+  const applyDetail = useCallback((data: Awaited<ReturnType<typeof fetchCandidateApi>>) => {
+    setCandidate(candidateDetailToCandidate(data));
+    setPromotionName(data.promotionName);
+  }, []);
+
+  const persistSkills = useCallback(
+    (skills: Skills) => {
+      if (skillsSaveTimer.current) clearTimeout(skillsSaveTimer.current);
+      skillsSaveTimer.current = setTimeout(async () => {
+        try {
+          const data = await updateCandidateSkillsApi(id, skills);
+          applyDetail(data);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Failed to save skills");
+        }
+      }, 400);
+    },
+    [applyDetail, id],
+  );
+
+  const persistModules = useCallback(
+    (modules: ModuleScore[]) => {
+      if (modulesSaveTimer.current) clearTimeout(modulesSaveTimer.current);
+      modulesSaveTimer.current = setTimeout(async () => {
+        try {
+          const data = await updateCandidateModuleGradesApi(id, modules);
+          applyDetail(data);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Failed to save module scores");
+        }
+      }, 400);
+    },
+    [applyDetail, id],
+  );
+
   const promotion = useStore((s) =>
     candidate ? s.promotions.find((p) => p.id === candidate.promotionId) : undefined,
   );
@@ -102,6 +147,8 @@ function CandidateDetail() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const skillsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modulesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editForm, setEditForm] = useState({
     firstName: "",
     lastName: "",
@@ -161,15 +208,15 @@ function CandidateDetail() {
       await updateCandidateApi(candidate.id, {
         firstName: editForm.firstName,
         lastName: editForm.lastName,
-        email: editForm.email || "Not provided",
-        phone: editForm.phone || "Not provided",
-        age: editForm.age === "" ? "Not provided" : Number(editForm.age),
-        gender: editForm.gender || "Not provided",
-        recruitmentDate: editForm.recruitmentDate || "Not provided",
-        educationLevel: editForm.educationLevel || "Not provided",
-        diplomaName: editForm.diplomaName || "Not provided",
+        email: editForm.email,
+        phone: editForm.phone,
+        age: editForm.age === "" ? undefined : Number(editForm.age),
+        gender: editForm.gender,
+        recruitmentDate: editForm.recruitmentDate,
+        educationLevel: editForm.educationLevel,
+        diplomaName: editForm.diplomaName,
         diplomaAverage:
-          editForm.diplomaAverage === "" ? "Not provided" : Number(editForm.diplomaAverage),
+          editForm.diplomaAverage === "" ? undefined : Number(editForm.diplomaAverage),
         photo: photoValue,
       });
 
@@ -196,40 +243,43 @@ function CandidateDetail() {
     };
 
   const setDisc = (key: keyof DisciplineSkills, val: number) =>
-    setCandidate((current) =>
-      current
-        ? {
-            ...current,
-            skills: {
-              ...current.skills,
-              discipline: { ...current.skills.discipline, [key]: val },
-            },
-          }
-        : current,
-    );
+    setCandidate((current) => {
+      if (!current) return current;
+      const next = {
+        ...current,
+        skills: {
+          ...current.skills,
+          discipline: { ...current.skills.discipline, [key]: val },
+        },
+      };
+      persistSkills(next.skills);
+      return next;
+    });
   const setWork = (key: keyof WorkSkills, val: number) =>
-    setCandidate((current) =>
-      current
-        ? {
-            ...current,
-            skills: {
-              ...current.skills,
-              work: { ...current.skills.work, [key]: val },
-            },
-          }
-        : current,
-    );
+    setCandidate((current) => {
+      if (!current) return current;
+      const next = {
+        ...current,
+        skills: {
+          ...current.skills,
+          work: { ...current.skills.work, [key]: val },
+        },
+      };
+      persistSkills(next.skills);
+      return next;
+    });
   const updateModuleScore = (moduleId: number, score: number) =>
-    setCandidate((current) =>
-      current
-        ? {
-            ...current,
-            modules: current.modules.map((m) =>
-              m.id === moduleId ? { ...m, score } : m,
-            ),
-          }
-        : current,
-    );
+    setCandidate((current) => {
+      if (!current) return current;
+      const next = {
+        ...current,
+        modules: current.modules.map((m) =>
+          m.id === moduleId ? { ...m, score } : m,
+        ),
+      };
+      persistModules(next.modules);
+      return next;
+    });
 
   return (
     <div className="space-y-6">
@@ -281,11 +331,14 @@ function CandidateDetail() {
             </DropdownMenu>
             <Select
               value={candidate.status}
-              onValueChange={(v) => {
-                setCandidate((current) =>
-                  current ? { ...current, status: v as Candidate["status"] } : current,
-                );
-                toast.success(`Status: ${v}`);
+              onValueChange={async (v) => {
+                try {
+                  const data = await updateCandidateStatusApi(id, v as Candidate["status"]);
+                  applyDetail(data);
+                  toast.success(`Status: ${v}`);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to update status");
+                }
               }}
             >
               <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>

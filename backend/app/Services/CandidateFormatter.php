@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\Candidate;
 use Illuminate\Support\Collection;
 
@@ -21,6 +22,7 @@ class CandidateFormatter
         'Aptitudes intellectuelles' => 'intellectual',
         "Rythme d'avancement" => 'pace',
         "Rapidité d'exécution" => 'speed',
+        "Rapidité d'exécution des tâches" => 'speed',
     ];
 
     public function formatListItem(Candidate $candidate): array
@@ -79,8 +81,23 @@ class CandidateFormatter
         return array_merge($this->formatListItem($candidate), [
             'skills' => $this->formatSkills($candidate->skills),
             'modules' => $this->formatModules($candidate),
-            'history' => [],
+            'history' => $this->formatHistory($candidate),
         ]);
+    }
+
+    public function formatHistory(Candidate $candidate): array
+    {
+        return ActivityLog::query()
+            ->where('target_type', 'Candidate')
+            ->where('target_id', $candidate->id)
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (ActivityLog $log) => [
+                'date' => $log->created_at->toISOString(),
+                'event' => $log->description,
+            ])
+            ->values()
+            ->all();
     }
 
     public function formatSkills(Collection $skills): array
