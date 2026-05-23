@@ -18,7 +18,7 @@ function AIAdvisor() {
     isTyping,
     handleSendMessage,
     messagesEndRef,
-  } = useAIAdvisor();
+  } = useAIAdvisor({ enabled: true });
 
   return (
     <div className="space-y-6">

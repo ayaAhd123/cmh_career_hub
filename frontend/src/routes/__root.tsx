@@ -9,7 +9,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import appCss from "../styles.css?url";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -18,7 +18,9 @@ import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useAuthHydrated } from "@/lib/auth-hydration";
 import { ProfileMenu } from "@/components/profile-menu";
-import { AiChatBubble } from "@/components/ai-chat-bubble";
+const AiChatBubble = lazy(() =>
+  import("@/components/ai-chat-bubble").then((m) => ({ default: m.AiChatBubble })),
+);
 import { RemindersPopover } from "@/components/reminders-popover";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -82,9 +84,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/logo.png", type: "image/png" },
       { rel: "apple-touch-icon", href: "/logo.png" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
       },
     ],
   }),
@@ -124,10 +128,7 @@ function RootComponent() {
 
   useEffect(() => {
     if (!isAuth) return;
-    void Promise.all([
-      useStore.getState().loadPromotions(),
-      useStore.getState().loadArchivedPromotions(),
-    ]).catch(console.error);
+    void useStore.getState().loadPromotions().catch(console.error);
   }, [isAuth]);
 
   useEffect(() => {
@@ -155,7 +156,9 @@ function RootComponent() {
             </main>
           </div>
         </div>
-        <AiChatBubble />
+        <Suspense fallback={null}>
+          <AiChatBubble />
+        </Suspense>
         <Toaster richColors position="top-right" />
       </SidebarProvider>
     </ThemeProvider>

@@ -25,11 +25,11 @@ class CandidateFormatter
         "Rapidité d'exécution des tâches" => 'speed',
     ];
 
-    public function formatListItem(Candidate $candidate): array
+    public function formatListItem(Candidate $candidate, bool $includePhoto = false): array
     {
         $avg = CandidateScoreService::overallAverage($candidate);
 
-        return [
+        $item = [
             'id' => (string) $candidate->id,
             'dbId' => $candidate->id,
             'promotionId' => $candidate->promotion?->promo_code ?? '',
@@ -41,7 +41,6 @@ class CandidateFormatter
             'recruitmentDate' => $candidate->recruitment_date->format('Y-m-d'),
             'age' => $candidate->age,
             'gender' => $candidate->gender,
-            'photo' => $candidate->photo,
             'educationLevel' => $candidate->education_level,
             'diplomaName' => $candidate->diploma_specialty ?? '',
             'diplomaAverage' => $candidate->diploma_average,
@@ -51,6 +50,12 @@ class CandidateFormatter
             'archived' => $candidate->state === 'Archived',
             'createdAt' => $candidate->created_at->toISOString(),
         ];
+
+        if ($includePhoto) {
+            $item['photo'] = $candidate->photo;
+        }
+
+        return $item;
     }
 
     public function formatExportRow(Candidate $candidate): array

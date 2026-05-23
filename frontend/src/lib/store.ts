@@ -121,6 +121,8 @@ export const useStore = create<State>()((set, get) => ({
 
   loadPromotions: async (opts) => {
     const search = opts?.search?.trim() ?? "";
+    if (!search && get().promotionsLoaded) return;
+
     const params = search ? `?search=${encodeURIComponent(search)}` : "";
     set({ promotionsLoading: true });
     try {
@@ -136,6 +138,8 @@ export const useStore = create<State>()((set, get) => ({
 
   loadArchivedPromotions: async (opts) => {
     const search = opts?.search?.trim() ?? "";
+    if (!search && get().archivedPromotionsLoaded) return;
+
     const params = search ? `?search=${encodeURIComponent(search)}` : "";
     set({ archivedPromotionsLoading: true });
     try {

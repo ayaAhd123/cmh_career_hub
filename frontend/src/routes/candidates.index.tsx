@@ -72,7 +72,6 @@ const SORT_OPTIONS = [
 function AllCandidates() {
   const search = Route.useSearch();
   const promotions = useStore((s) => s.promotions);
-  const loadPromotions = useStore((s) => s.loadPromotions);
 
   const [candidates, setCandidates] = useState<CandidateListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,10 +126,6 @@ function AllCandidates() {
       setLoading(false);
     }
   }, [apiFilters]);
-
-  useEffect(() => {
-    void loadPromotions();
-  }, [loadPromotions]);
 
   useEffect(() => {
     if (search.promotion_id) setPromoFilter(search.promotion_id);

@@ -14,7 +14,7 @@ class CandidateQueryService
 
     public function list(array $filters): array
     {
-        $candidates = $this->baseQuery($filters)->get();
+        $candidates = $this->baseQuery($filters, light: true)->get();
         $filtered = $this->applyFilters($candidates, $filters);
         $sorted = $this->applySort($filtered, $filters['sort'] ?? 'avg_desc');
 
@@ -35,15 +35,19 @@ class CandidateQueryService
         return $sorted->map(fn (Candidate $c) => $this->formatter->formatExportRow($c));
     }
 
-    private function baseQuery(array $filters)
+    private function baseQuery(array $filters, bool $light = false)
     {
-        $query = Candidate::query()
-            ->with([
-                'promotion',
-                'skills',
-                'moduleGrades',
-                'promotion.modules' => fn ($q) => $q->orderBy('module_order'),
-            ]);
+        $with = [
+            'promotion:id,promo_code,name',
+            'skills:candidate_id,category,skill_name,score',
+            'moduleGrades:candidate_id,module_id,score',
+        ];
+
+        if (! $light) {
+            $with['promotion.modules'] = fn ($q) => $q->orderBy('module_order');
+        }
+
+        $query = Candidate::query()->with($with);
 
         if (($filters['scope'] ?? '') === 'archived') {
             return $query->where('state', 'Archived');

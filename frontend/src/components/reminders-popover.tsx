@@ -207,15 +207,10 @@ export function RemindersPopover() {
   }, [token]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    void loadReminders();
-  }, [hydrated, loadReminders]);
-
-  useEffect(() => {
-    if (open && token) {
+    if (open && hydrated && token) {
       void loadReminders();
     }
-  }, [open, token, loadReminders]);
+  }, [open, hydrated, token, loadReminders]);
 
   const visibleReminders = useMemo(
     () => filterVisibleReminders(userKey, reminders),

@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,9 +55,6 @@ export const Route = createFileRoute("/graduates")({
 });
 
 function Graduates() {
-  const promotions = useStore((s) => s.promotions);
-  const loadPromotions = useStore((s) => s.loadPromotions);
-
   const [candidates, setCandidates] = useState<CandidateListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -100,10 +96,6 @@ function Graduates() {
       setLoading(false);
     }
   }, [apiFilters]);
-
-  useEffect(() => {
-    void loadPromotions();
-  }, [loadPromotions]);
 
   useEffect(() => {
     void loadGraduates();

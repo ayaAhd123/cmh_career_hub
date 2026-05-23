@@ -30,7 +30,6 @@ export const Route = createFileRoute("/reports")({
 
 function Reports() {
   const promotions = useStore((s) => s.promotions);
-  const loadPromotions = useStore((s) => s.loadPromotions);
 
   const [candidates, setCandidates] = useState<CandidateListItem[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(true);
@@ -41,10 +40,6 @@ function Reports() {
   const [promoFmt, setPromoFmt] = useState<"pdf" | "xlsx" | "html">("pdf");
   const [promoLang, setPromoLang] = useState<ExportLocale>("fr");
   const [exporting, setExporting] = useState(false);
-
-  useEffect(() => {
-    void loadPromotions();
-  }, [loadPromotions]);
 
   useEffect(() => {
     void (async () => {
