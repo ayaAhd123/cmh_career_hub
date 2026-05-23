@@ -1,5 +1,5 @@
 import { useAuth } from "./auth";
-import type { Category } from "./types";
+import type { Category, Candidate } from "./types";
 
 const API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8000";
@@ -78,4 +78,26 @@ export async function fetchPromotionStats(promotionId: string): Promise<Promotio
   }
 
   return data;
+}
+
+export async function fetchPromotionExportCandidates(promotionId: string): Promise<Candidate[]> {
+  const token = useAuth.getState().token;
+
+  const res = await fetch(`${API_BASE}/api/v1/promotions/${promotionId}/export-data`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to load promotion export data");
+  }
+
+  return (data.candidates ?? []).map((c: Candidate) => ({
+    ...c,
+    age: c.age ?? "Not provided",
+    diplomaAverage: c.diplomaAverage ?? "Not provided",
+  }));
 }

@@ -25,6 +25,66 @@ class CandidateController extends Controller
         return response()->json($this->queryService->list($filters));
     }
 
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'promotionId' => 'required|string|max:50',
+            'firstName' => 'required|string|max:50',
+            'lastName' => 'required|string|max:50',
+            'email' => 'required|email|max:100|unique:candidates,email',
+            'phone' => 'required|string|max:20',
+            'recruitmentDate' => 'required|date|before_or_equal:today',
+            'age' => 'required|integer|min:18|max:65',
+            'gender' => 'required|in:Homme,Femme',
+            'educationLevel' => 'required|in:Bac,Bac+2,Bac+3,Bac+4,Bac+5,Bac+8',
+            'diplomaName' => 'required|string|max:100',
+            'diplomaAverage' => 'required|numeric|min:0|max:20',
+            'photo' => 'nullable|string',
+        ]);
+
+        $promotionId = $this->queryService->resolvePromotionId($validated['promotionId']);
+        if (! $promotionId) {
+            return response()->json(['message' => 'Promotion not found'], 404);
+        }
+
+        $candidate = Candidate::create([
+            'promotion_id' => $promotionId,
+            'first_name' => $validated['firstName'],
+            'last_name' => $validated['lastName'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'],
+            'recruitment_date' => $validated['recruitmentDate'],
+            'age' => $validated['age'],
+            'gender' => $validated['gender'],
+            'photo' => $validated['photo'] ?? null,
+            'education_level' => $validated['educationLevel'],
+            'diploma_specialty' => $validated['diplomaName'],
+            'diploma_average' => $validated['diplomaAverage'],
+            'state' => 'Active',
+        ]);
+
+        $candidate->load([
+            'promotion',
+            'skills',
+            'moduleGrades',
+            'promotion.modules' => fn ($q) => $q->orderBy('module_order'),
+        ]);
+
+        return response()->json($this->formatter->formatListItem($candidate), 201);
+    }
+
+    public function show(Candidate $candidate)
+    {
+        $candidate->load([
+            'promotion',
+            'skills',
+            'moduleGrades',
+            'promotion.modules' => fn ($q) => $q->orderBy('module_order'),
+        ]);
+
+        return response()->json($this->formatter->formatDetail($candidate));
+    }
+
     public function export(Request $request)
     {
         $filters = $this->validatedFilters($request);

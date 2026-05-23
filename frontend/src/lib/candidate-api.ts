@@ -1,6 +1,14 @@
 import { useAuth } from "./auth";
 import type { ExportLocale } from "./export-i18n";
-import type { Candidate, Category, CandidateStatus, EducationLevel, Gender } from "./types";
+import type {
+  Candidate,
+  Category,
+  CandidateStatus,
+  EducationLevel,
+  Gender,
+  ModuleScore,
+  Skills,
+} from "./types";
 
 const API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8000";
@@ -50,6 +58,85 @@ const authHeaders = (): HeadersInit => {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
+
+export interface CreateCandidatePayload {
+  promotionId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  recruitmentDate: string;
+  age: number;
+  gender: Gender | string;
+  educationLevel: EducationLevel | string;
+  diplomaName: string;
+  diplomaAverage: number;
+  photo?: string;
+}
+
+export interface CandidateDetail extends CandidateListItem {
+  skills: Skills;
+  modules: ModuleScore[];
+  history: { date: string; event: string }[];
+}
+
+export async function fetchCandidateApi(id: string): Promise<CandidateDetail> {
+  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}`, {
+    headers: authHeaders(),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to load candidate");
+  }
+
+  return data;
+}
+
+export function candidateDetailToCandidate(detail: CandidateDetail): Candidate & { avgScore: number } {
+  return {
+    id: detail.id,
+    promotionId: detail.promotionId,
+    firstName: detail.firstName,
+    lastName: detail.lastName,
+    email: detail.email,
+    phone: detail.phone,
+    recruitmentDate: detail.recruitmentDate,
+    age: detail.age ?? "Not provided",
+    gender: detail.gender,
+    photo: detail.photo,
+    educationLevel: detail.educationLevel,
+    diplomaName: detail.diplomaName,
+    diplomaAverage: detail.diplomaAverage ?? "Not provided",
+    skills: detail.skills,
+    modules: detail.modules,
+    status: detail.status,
+    archived: detail.archived,
+    createdAt: detail.createdAt,
+    history: detail.history ?? [],
+    avgScore: detail.avgScore,
+  };
+}
+
+export async function createCandidateApi(
+  payload: CreateCandidatePayload,
+): Promise<CandidateListItem> {
+  const res = await fetch(`${API_BASE}/api/v1/candidates`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    const firstError = data.errors
+      ? Object.values(data.errors as Record<string, string[]>)[0]?.[0]
+      : undefined;
+    throw new Error(firstError || data.message || "Failed to create candidate");
+  }
+
+  return data;
+}
 
 export async function fetchCandidates(
   filters: CandidateFilters,

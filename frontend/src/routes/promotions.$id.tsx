@@ -13,11 +13,12 @@ import {
 } from "@/lib/calc";
 import {
   fetchCandidates,
+  createCandidateApi,
   deleteCandidateApi,
   updateCandidateApi,
   type CandidateListItem,
 } from "@/lib/candidate-api";
-import { fetchPromotionStats, type PromotionStats } from "@/lib/promotion-api";
+import { fetchPromotionStats, fetchPromotionExportCandidates, type PromotionStats } from "@/lib/promotion-api";
 import {
   ArrowLeft,
   Users,
@@ -38,7 +39,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Label as RechartsLabel
 } from "recharts";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -61,24 +62,7 @@ import { ReminderContextBanner } from "@/components/reminder-context-banner";
 import {
   exportPromotionPDF, exportPromotionExcel, exportPromotionHTML,
 } from "@/lib/exports";
-import type { Candidate } from "@/lib/types";
-
-function candidatesForExport(items: CandidateListItem[]): Candidate[] {
-  const emptySkills = {
-    discipline: { discipline: 0, motivation: 0, communication: 0, listening: 0 },
-    work: { initiative: 0, analysis: 0, organization: 0, intellectual: 0, pace: 0, speed: 0 },
-  };
-
-  return items.map((c) => ({
-    ...c,
-    age: c.age ?? "Not provided",
-    diplomaAverage: c.diplomaAverage ?? "Not provided",
-    avgScore: c.avgScore,
-    skills: emptySkills,
-    modules: [],
-    history: [],
-  })) as Candidate[];
-}
+import type { ExportLocale } from "@/lib/export-i18n";
 
 export const Route = createFileRoute("/promotions/$id")({
   head: ({ params }) => ({
@@ -158,7 +142,6 @@ function PromotionDetail() {
   }, [id, promotion, loadPromotions, loadArchivedPromotions]);
 
   const archive = useStore((s) => s.archivePromotion);
-  const addCandidate = useStore((s) => s.addCandidate);
   const nav = useNavigate();
   const [activeTab, setActiveTab] = useState(tabFromSearch ?? "candidates");
   const [search, setSearch] = useState("");
@@ -172,6 +155,8 @@ function PromotionDetail() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [candidates, setCandidates] = useState<CandidateListItem[]>([]);
   const [candidatesLoading, setCandidatesLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportLang, setExportLang] = useState<ExportLocale>("en");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editingCandidate = candidates.find((c) => c.id === editingCandidateId) ?? null;
@@ -217,6 +202,26 @@ function PromotionDetail() {
     await Promise.all([loadStats(), loadCandidates()]);
   }, [loadStats, loadCandidates]);
 
+  const handlePromotionExport = useCallback(async (format: "pdf" | "excel" | "html") => {
+    if (!promotion) return;
+
+    setExporting(true);
+    try {
+      const exportCandidates = await fetchPromotionExportCandidates(id);
+
+      if (format === "pdf") exportPromotionPDF(promotion, exportCandidates, { locale: exportLang });
+      else if (format === "excel") exportPromotionExcel(promotion, exportCandidates, { locale: exportLang });
+      else exportPromotionHTML(promotion, exportCandidates, { locale: exportLang });
+
+      toast.success("Export generated");
+    } catch (err) {
+      console.error(err);
+      toast.error((err as Error).message || "Failed to export promotion");
+    } finally {
+      setExporting(false);
+    }
+  }, [id, promotion, exportLang]);
+
   useEffect(() => {
     void loadStats();
   }, [loadStats]);
@@ -237,7 +242,7 @@ function PromotionDetail() {
     if (!file || !promotion) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const data = event.target?.result;
         if (!data) return;
@@ -255,7 +260,7 @@ function PromotionDetail() {
         let added = 0;
         let duplicates = 0;
 
-        rows.forEach((row, index) => {
+        for (const [index, row] of rows.entries()) {
           const normRow: Record<string, any> = {};
           Object.keys(row).forEach((k) => {
             normRow[k.toLowerCase().trim()] = row[k];
@@ -324,28 +329,31 @@ function PromotionDetail() {
             diplomaAverage = "Not provided";
           }
 
-          const res = addCandidate({
-            promotionId: promotion.id,
-            firstName,
-            lastName,
-            email,
-            phone,
-            recruitmentDate,
-            age,
-            gender,
-            educationLevel,
-            diplomaName,
-            diplomaAverage,
-          });
-
-          if (res.ok) {
+          try {
+            await createCandidateApi({
+              promotionId: promotion.id,
+              firstName,
+              lastName,
+              email,
+              phone,
+              recruitmentDate,
+              age,
+              gender,
+              educationLevel,
+              diplomaName,
+              diplomaAverage,
+            });
             added++;
-          } else {
-            duplicates++;
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "";
+            if (message.toLowerCase().includes("email")) {
+              duplicates++;
+            }
           }
-        });
+        }
 
         if (added > 0) {
+          await refreshData();
           toast.success(`Successfully imported ${added} candidates!` + (duplicates > 0 ? ` (${duplicates} duplicates skipped)` : ""));
         } else if (duplicates > 0) {
           toast.warning(`No new candidates added. ${duplicates} duplicate emails found.`);
@@ -425,14 +433,41 @@ function PromotionDetail() {
               <StatusBadge status={promotionStatus(promotion)} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Download className="mr-1 h-4 w-4" /> Export
+                  <Button variant="outline" size="sm" disabled={exporting}>
+                    <Download className="mr-1 h-4 w-4" /> {exporting ? "Exporting…" : "Export"}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => exportPromotionPDF(promotion, candidatesForExport(candidates))}>PDF</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportPromotionExcel(promotion, candidatesForExport(candidates))}>Excel</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportPromotionHTML(promotion, candidatesForExport(candidates))}>HTML</DropdownMenuItem>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Export promotion</DropdownMenuLabel>
+                  <div className="px-2 pb-2">
+                    <div className="text-xs text-muted-foreground mb-1.5">Language / Langue</div>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={exportLang === "en" ? "default" : "outline"}
+                        className="h-7 flex-1 px-2"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => setExportLang("en")}
+                      >
+                        EN
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={exportLang === "fr" ? "default" : "outline"}
+                        className="h-7 flex-1 px-2"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => setExportLang("fr")}
+                      >
+                        FR
+                      </Button>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled={exporting} onClick={() => void handlePromotionExport("pdf")}>PDF</DropdownMenuItem>
+                  <DropdownMenuItem disabled={exporting} onClick={() => void handlePromotionExport("excel")}>Excel</DropdownMenuItem>
+                  <DropdownMenuItem disabled={exporting} onClick={() => void handlePromotionExport("html")}>HTML</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <Dialog open={archiveDialogOpen} onOpenChange={(open) => {
@@ -720,7 +755,7 @@ function PromotionDetail() {
                   <Button variant="outline" className="bg-muted/40" onClick={() => fileInputRef.current?.click()}>
                     <Upload className="mr-2 h-4 w-4" /> Import Excel
                   </Button>
-                  <AddCandidateDialog promotionId={promotion.id} />
+                  <AddCandidateDialog promotionId={promotion.id} onSuccess={refreshData} />
                 </div>
               </div>
             </CardHeader>

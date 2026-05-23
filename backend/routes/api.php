@@ -26,10 +26,11 @@ Route::prefix('v1')->group(function () {
         Route::get('reminders', [RemindersController::class, 'index']);
 
         Route::get('candidates/export', [CandidateController::class, 'export']);
-        Route::apiResource('candidates', CandidateController::class)->only(['index', 'update', 'destroy']);
+        Route::apiResource('candidates', CandidateController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 
         // Custom Promotion endpoints
         Route::get('promotions/{promotion}/stats', [PromotionController::class, 'stats']);
+        Route::get('promotions/{promotion}/export-data', [PromotionController::class, 'exportData']);
         Route::get('promotions/archived/list', [PromotionController::class, 'archived']);
         Route::post('promotions/{promotion}/archive', [PromotionController::class, 'archive']);
         Route::post('promotions/{promotion}/restore', [PromotionController::class, 'restore'])->withTrashed();

@@ -1,6 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
+import {
+  candidateDetailToCandidate,
+  deleteCandidateApi,
+  fetchCandidateApi,
+  updateCandidateApi,
+} from "@/lib/candidate-api";
+import type { Candidate } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,16 +63,34 @@ const WORK_FIELDS: { key: keyof WorkSkills; label: string }[] = [
 
 function CandidateDetail() {
   const { id } = Route.useParams();
-  const candidate = useStore((s) => s.candidates.find((c) => c.id === id));
+  const [candidate, setCandidate] = useState<(Candidate & { avgScore?: number }) | null>(null);
+  const [promotionName, setPromotionName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const loadPromotions = useStore((s) => s.loadPromotions);
+  const nav = useNavigate();
+
+  const loadCandidate = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchCandidateApi(id);
+      setCandidate(candidateDetailToCandidate(data));
+      setPromotionName(data.promotionName);
+    } catch (err) {
+      console.error(err);
+      setCandidate(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void loadPromotions();
+    void loadCandidate();
+  }, [loadPromotions, loadCandidate]);
+
   const promotion = useStore((s) =>
     candidate ? s.promotions.find((p) => p.id === candidate.promotionId) : undefined,
   );
-  const setSkills = useStore((s) => s.setSkills);
-  const updateModuleScore = useStore((s) => s.updateModuleScore);
-  const changeStatus = useStore((s) => s.changeStatus);
-  const archive = useStore((s) => s.archiveCandidate);
-  const updateCandidate = useStore((s) => s.updateCandidate);
-  const nav = useNavigate();
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -128,42 +153,83 @@ function CandidateDetail() {
       return;
     }
 
-    const photoValue = editForm.photoFile
-      ? await readFileAsDataUrl(editForm.photoFile)
-      : editForm.photo;
+    try {
+      const photoValue = editForm.photoFile
+        ? await readFileAsDataUrl(editForm.photoFile)
+        : editForm.photo;
 
-    updateCandidate(candidate.id, {
-      firstName: editForm.firstName,
-      lastName: editForm.lastName,
-      email: editForm.email || "Not provided",
-      phone: editForm.phone || "Not provided",
-      age: editForm.age === "" ? "Not provided" : Number(editForm.age),
-      gender: editForm.gender || "Not provided",
-      recruitmentDate: editForm.recruitmentDate || "Not provided",
-      educationLevel: editForm.educationLevel || "Not provided",
-      diplomaName: editForm.diplomaName || "Not provided",
-      diplomaAverage:
-        editForm.diplomaAverage === "" ? "Not provided" : Number(editForm.diplomaAverage),
-      photo: photoValue,
-    });
+      await updateCandidateApi(candidate.id, {
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        email: editForm.email || "Not provided",
+        phone: editForm.phone || "Not provided",
+        age: editForm.age === "" ? "Not provided" : Number(editForm.age),
+        gender: editForm.gender || "Not provided",
+        recruitmentDate: editForm.recruitmentDate || "Not provided",
+        educationLevel: editForm.educationLevel || "Not provided",
+        diplomaName: editForm.diplomaName || "Not provided",
+        diplomaAverage:
+          editForm.diplomaAverage === "" ? "Not provided" : Number(editForm.diplomaAverage),
+        photo: photoValue,
+      });
 
-    toast.success("Personal info updated successfully");
-    setIsEditing(false);
+      await loadCandidate();
+      toast.success("Personal info updated successfully");
+      setIsEditing(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update candidate");
+    }
   };
 
+  if (loading) return <p className="text-muted-foreground">Loading candidate...</p>;
   if (!candidate) return <p>Not found</p>;
   const avg = overallAverage(candidate);
+  const exportPromotion =
+    promotion ?? {
+      id: candidate.promotionId,
+      name: promotionName || candidate.promotionId,
+      startDate: "",
+      endDate: "",
+      status: "Active" as const,
+      archived: false,
+      createdAt: candidate.createdAt,
+    };
 
   const setDisc = (key: keyof DisciplineSkills, val: number) =>
-    setSkills(candidate.id, {
-      ...candidate.skills,
-      discipline: { ...candidate.skills.discipline, [key]: val },
-    });
+    setCandidate((current) =>
+      current
+        ? {
+            ...current,
+            skills: {
+              ...current.skills,
+              discipline: { ...current.skills.discipline, [key]: val },
+            },
+          }
+        : current,
+    );
   const setWork = (key: keyof WorkSkills, val: number) =>
-    setSkills(candidate.id, {
-      ...candidate.skills,
-      work: { ...candidate.skills.work, [key]: val },
-    });
+    setCandidate((current) =>
+      current
+        ? {
+            ...current,
+            skills: {
+              ...current.skills,
+              work: { ...current.skills.work, [key]: val },
+            },
+          }
+        : current,
+    );
+  const updateModuleScore = (moduleId: number, score: number) =>
+    setCandidate((current) =>
+      current
+        ? {
+            ...current,
+            modules: current.modules.map((m) =>
+              m.id === moduleId ? { ...m, score } : m,
+            ),
+          }
+        : current,
+    );
 
   return (
     <div className="space-y-6">
@@ -185,11 +251,13 @@ function CandidateDetail() {
               {candidate.firstName} {candidate.lastName}
             </h1>
             <p className="text-sm text-muted-foreground">{candidate.email}</p>
-            {promotion && (
+            {promotion ? (
               <p className="text-xs text-muted-foreground mt-1">
                 {promotion.id} — {promotion.name}
               </p>
-            )}
+            ) : promotionName ? (
+              <p className="text-xs text-muted-foreground mt-1">{candidate.promotionId} — {promotionName}</p>
+            ) : null}
             <div className="flex items-center gap-2 mt-2">
               <CategoryBadge category={categoryFor(avg)} />
               <StatusBadge status={candidate.status} />
@@ -206,15 +274,17 @@ function CandidateDetail() {
                 <Button size="sm"><Download className="mr-1 h-4 w-4" /> Report</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => exportCandidatePDF(candidate, promotion)}>PDF</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportCandidateExcel(candidate, promotion)}>Excel</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportCandidateHTML(candidate, promotion)}>HTML</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportCandidatePDF(candidate, exportPromotion)}>PDF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportCandidateExcel(candidate, exportPromotion)}>Excel</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportCandidateHTML(candidate, exportPromotion)}>HTML</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Select
               value={candidate.status}
               onValueChange={(v) => {
-                changeStatus(candidate.id, v as never);
+                setCandidate((current) =>
+                  current ? { ...current, status: v as Candidate["status"] } : current,
+                );
                 toast.success(`Status: ${v}`);
               }}
             >
@@ -243,11 +313,16 @@ function CandidateDetail() {
                   <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
                   <AlertDialogAction
                     className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={() => {
-                      archive(candidate.id);
-                      toast.success("Archived");
-                      nav({ to: "/promotions/$id", params: { id: candidate.promotionId } });
-                      setShowDeleteDialog(false);
+                    onClick={async () => {
+                      try {
+                        await deleteCandidateApi(candidate.id);
+                        toast.success("Candidate deleted");
+                        nav({ to: "/promotions/$id", params: { id: candidate.promotionId } });
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Failed to delete candidate");
+                      } finally {
+                        setShowDeleteDialog(false);
+                      }
                     }}
                   >
                     Archive candidate
@@ -503,7 +578,6 @@ function CandidateDetail() {
                           value={m.score}
                           onChange={(e) =>
                             updateModuleScore(
-                              candidate.id,
                               m.id,
                               Math.min(20, Math.max(0, parseFloat(e.target.value) || 0)),
                             )
