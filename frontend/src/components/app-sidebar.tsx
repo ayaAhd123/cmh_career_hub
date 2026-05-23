@@ -38,12 +38,12 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b">
-        <div className="flex items-center gap-2 px-2 py-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-background p-1 shadow-sm ring-1 ring-border/50">
+      <SidebarHeader className="border-b group-data-[collapsible=icon]:p-1">
+        <div className="flex items-center gap-2 px-2 py-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-2">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-background p-1 shadow-sm ring-1 ring-border/50 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:p-0.5 group-data-[collapsible=icon]:shadow-none group-data-[collapsible=icon]:ring-border/40">
             <img src="/logo.png" alt="CareerHub" className="h-full w-full object-contain" />
           </div>
-          <div className="flex flex-col leading-tight group-data-[state=collapsed]:hidden">
+          <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
             <span className="font-bold text-foreground">CareerHub</span>
             <span className="text-[10px] text-muted-foreground">
               by CMH Cloud Marketing Hub
