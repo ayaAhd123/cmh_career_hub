@@ -29,7 +29,7 @@ export const categoryFor = (avg: number): Category => {
 export const categoryColor = (c: Category) => {
   switch (c) {
     case "Excellent": return "bg-excellent text-white";
-    case "Good": return "bg-good text-emerald-950";
+    case "Good": return "bg-good text-good-foreground";
     case "Passable": return "bg-passable text-white";
     case "Critical": return "bg-critical text-white";
   }

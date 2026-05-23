@@ -36,6 +36,7 @@
   --color-info-foreground: var(--info-foreground);
   --color-excellent: var(--excellent);
   --color-good: var(--good);
+  --color-good-foreground: var(--good-foreground);
   --color-passable: var(--passable);
   --color-critical: var(--critical);
   --color-sidebar: var(--sidebar);
@@ -79,6 +80,7 @@
 
   --excellent: oklch(0.52 0.14 165);
   --good: oklch(0.82 0.12 155);
+  --good-foreground: oklch(0.32 0.07 162);
   --passable: oklch(0.78 0.15 75);
   --critical: oklch(0.62 0.22 25);
 

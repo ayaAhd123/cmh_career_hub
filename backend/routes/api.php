@@ -5,6 +5,9 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\AiController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\PromotionController;
+use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\CandidateController;
+use App\Http\Controllers\Api\V1\RemindersController;
 
 Route::prefix('v1')->group(function () {
     Route::get('health', [HealthController::class, 'index']);
@@ -18,6 +21,12 @@ Route::prefix('v1')->group(function () {
         Route::get('auth/me', [AuthController::class, 'me']);
         Route::put('auth/profile', [AuthController::class, 'updateProfile']);
         Route::post('auth/change-password', [AuthController::class, 'changePassword']);
+
+        Route::get('dashboard/stats', [DashboardController::class, 'stats']);
+        Route::get('reminders', [RemindersController::class, 'index']);
+
+        Route::get('candidates/export', [CandidateController::class, 'export']);
+        Route::apiResource('candidates', CandidateController::class)->only(['index', 'update', 'destroy']);
 
         // Custom Promotion endpoints
         Route::get('promotions/archived/list', [PromotionController::class, 'archived']);

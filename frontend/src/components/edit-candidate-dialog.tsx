@@ -25,10 +25,12 @@ export function EditCandidateDialog({
   candidate,
   open,
   onOpenChange,
+  onSave,
 }: {
   candidate: Candidate | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSave?: (id: string, data: Partial<Candidate>) => Promise<void>;
 }) {
   const updateCandidate = useStore((s) => s.updateCandidate);
 
@@ -103,7 +105,7 @@ export function EditCandidateDialog({
       ? await readFileAsDataUrl(form.photoFile)
       : form.photo;
 
-    updateCandidate(candidate.id, {
+    const payload = {
       firstName: form.firstName,
       lastName: form.lastName,
       email: form.email,
@@ -115,7 +117,18 @@ export function EditCandidateDialog({
       diplomaName: form.diplomaName,
       diplomaAverage: Number(form.diplomaAverage),
       photo: photoValue,
-    });
+    };
+
+    if (onSave) {
+      try {
+        await onSave(candidate.id, payload);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update candidate");
+        return;
+      }
+    } else {
+      updateCandidate(candidate.id, payload);
+    }
 
     toast.success("Candidate updated");
     onOpenChange(false);

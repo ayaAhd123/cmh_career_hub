@@ -68,7 +68,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "CareerHub — HR Training Management by CMH" },
+      { title: "CareerHub — Cloud Marketing Hub" },
       {
         name: "description",
         content:

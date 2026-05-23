@@ -1,35 +1,24 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { GraduationCap, Users, TrendingUp, AlertTriangle, Plus, ArrowRight, Inbox, Search, Activity, PieChart as PieChartIcon, BarChart3, Star, Trophy, Calendar, ChevronDown } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { GraduationCap, Users, TrendingUp, AlertTriangle, ArrowRight, Inbox, Activity, PieChart as PieChartIcon, BarChart3 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { KpiCard } from "@/components/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/badges";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { calcEndDate, formatDate, overallAverage, passRate, promotionProgress, promotionStatus, turnoverRate } from "@/lib/calc";
+import { formatDate } from "@/lib/calc";
+import { fetchDashboardStats } from "@/lib/dashboard-api";
 import { toast } from "sonner";
-import { 
-  isSameYear, isSameQuarter, isSameMonth, isToday, isYesterday, 
-  isThisWeek, isThisMonth, isThisYear, subWeeks, subMonths, subYears, isSameWeek
-} from "date-fns";
 import { AddPromotionDialog } from "@/components/add-promotion-dialog";
+import { ReminderContextBanner } from "@/components/reminder-context-banner";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip,
-  ResponsiveContainer, Legend, Label as RechartsLabel, ComposedChart, Line
+  ResponsiveContainer, Legend, Label as RechartsLabel
 } from "recharts";
-import type { TimeRange } from "@/lib/types";
+import type { DashboardStats, TimeRange } from "@/lib/types";
 
 const GENDER_COLORS: Record<string, string> = {
   Male: "#6366f1", // Indigo
@@ -37,14 +26,6 @@ const GENDER_COLORS: Record<string, string> = {
   Homme: "#6366f1", // Indigo
   Femme: "#ec4899", // Pink
   Other: "#f59e0b", // Amber
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  Active: "#3b82f6", // Blue
-  Graduated: "#10b981", // Emerald
-  Dropped: "#ef4444", // Red
-  Dismissed: "#f97316", // Orange
-  Terminated: "#ef4444",
 };
 
 const AGE_COLORS = ["url(#ageGradient1)", "url(#ageGradient2)", "url(#ageGradient3)", "url(#ageGradient4)"];
@@ -98,9 +79,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 function DashboardPage() {
-  const promotions = useStore((s) => s.promotions);
-  const candidates = useStore((s) => s.candidates);
-
   const timeRange = useStore((s) => s.globalTimeRange);
   const customStart = useStore((s) => s.globalCustomStart);
   const customEnd = useStore((s) => s.globalCustomEnd);
@@ -109,14 +87,46 @@ function DashboardPage() {
   const setCustomEnd = useStore((s) => s.setGlobalCustomEnd);
   const clearFilters = useStore((s) => s.clearGlobalFilters);
   const [chartMode, setChartMode] = useState<"volume" | "performance">("volume");
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
-  const timeRangeLabels: Record<TimeRange, string> = {
-    all: "All Time", today: "Today", yesterday: "Yesterday",
-    current_week: "Current Week", last_week: "Last Week",
-    current_month: "Current Month", last_month: "Last Month",
-    current_year: "Current Year", last_year: "Last Year",
-    custom: "Custom Range"
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadStats = async () => {
+      setStatsLoading(true);
+      try {
+        const data = await fetchDashboardStats(timeRange, customStart, customEnd);
+        if (!cancelled) setStats(data);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to load dashboard stats", err);
+          toast.error("Failed to load dashboard statistics");
+        }
+      } finally {
+        if (!cancelled) setStatsLoading(false);
+      }
+    };
+
+    void loadStats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [timeRange, customStart, customEnd]);
+
+  const kpis = stats?.kpis ?? {
+    totalPromos: 0,
+    activeCands: 0,
+    passRate: 0,
+    globalAvg: "0.0",
+    turnover: 0,
   };
+  const eduData = stats?.demographics.education ?? [];
+  const genderData = stats?.demographics.gender ?? [];
+  const ageData = stats?.demographics.age ?? [];
+  const activeCohorts = stats?.activePromotions ?? [];
+  const hasCandidateData = eduData.some((d) => d.count > 0) || genderData.length > 0;
 
   const handleStartChange = (val: string) => {
     if (val && customEnd && new Date(val) > new Date(customEnd)) {
@@ -134,138 +144,9 @@ function DashboardPage() {
     setCustomEnd(val);
   };
 
-  const { filteredPromosForStats, filteredCandsForStats } = useMemo(() => {
-    const today = new Date();
-    
-    const checkDate = (dateStr: string) => {
-      if (timeRange === "all") return true;
-      const d = new Date(dateStr);
-      switch (timeRange) {
-        case "today": return isToday(d);
-        case "yesterday": return isYesterday(d);
-        case "current_week": return isThisWeek(d, { weekStartsOn: 1 });
-        case "last_week": return isSameWeek(d, subWeeks(today, 1), { weekStartsOn: 1 });
-        case "current_month": return isThisMonth(d);
-        case "last_month": return isSameMonth(d, subMonths(today, 1));
-        case "current_year": return isThisYear(d);
-        case "last_year": return isSameYear(d, subYears(today, 1));
-        case "custom": {
-          if (customStart && d < new Date(customStart)) return false;
-          if (customEnd && d > new Date(customEnd)) return false;
-          return true;
-        }
-        default: return true;
-      }
-    };
-    
-    const p = promotions.filter(promo => {
-      if (promo.archived) return false;
-      return checkDate(promo.startDate);
-    });
-
-    const c = candidates.filter(cand => {
-      if (cand.archived) return false;
-      return checkDate(cand.recruitmentDate);
-    });
-
-    return { filteredPromosForStats: p, filteredCandsForStats: c };
-  }, [promotions, candidates, timeRange, customStart, customEnd]);
-
-  const kpis = useMemo(() => {
-    const active = filteredCandsForStats.filter((c) => c.status === "Active");
-    
-    const withScores = filteredCandsForStats.filter(c => c.modules && c.modules.length > 0);
-    const globalAvg = withScores.length > 0 
-      ? withScores.reduce((a, c) => a + overallAverage(c), 0) / withScores.length 
-      : 0;
-
-    return {
-      totalPromos: filteredPromosForStats.length,
-      activeCands: active.length,
-      passRate: passRate(filteredCandsForStats),
-      turnover: turnoverRate(filteredCandsForStats),
-      globalAvg: globalAvg.toFixed(1),
-    };
-  }, [filteredPromosForStats, filteredCandsForStats]);
-
-  // Gender donut data
-  const genderData = useMemo(() => {
-    const map = filteredCandsForStats.reduce((acc, c) => {
-      const g = (c as any).gender || "Other";
-      if (!acc[g]) acc[g] = { count: 0, sum: 0 };
-      acc[g].count += 1;
-      acc[g].sum += overallAverage(c);
-      return acc;
-    }, {} as Record<string, { count: number, sum: number }>);
-    return Object.entries(map).map(([name, data]) => ({ 
-      name, value: data.count, avg: data.count > 0 ? Number((data.sum / data.count).toFixed(1)) : 0 
-    }));
-  }, [filteredCandsForStats]);
-
-  // Status Distribution data
-  const statusData = useMemo(() => {
-    const map = filteredCandsForStats.reduce((acc, c) => {
-      const s = c.status || "Unknown";
-      acc[s] = (acc[s] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [filteredCandsForStats]);
-
-  // Age bucket bar data
-  const ageData = useMemo(() => {
-    const map: Record<string, { count: number, sum: number }> = { "18-24": { count: 0, sum: 0 }, "25-30": { count: 0, sum: 0 }, "31-35": { count: 0, sum: 0 }, "36+": { count: 0, sum: 0 } };
-    filteredCandsForStats.forEach((c) => {
-      const age = c.age;
-      if (typeof age !== 'number') return;
-      const score = overallAverage(c);
-      if (age < 25) { map["18-24"].count++; map["18-24"].sum += score; }
-      else if (age < 31) { map["25-30"].count++; map["25-30"].sum += score; }
-      else if (age < 36) { map["31-35"].count++; map["31-35"].sum += score; }
-      else { map["36+"].count++; map["36+"].sum += score; }
-    });
-    return Object.entries(map).map(([range, data]) => ({ 
-      range, count: data.count, avg: data.count > 0 ? Number((data.sum / data.count).toFixed(1)) : 0 
-    }));
-  }, [filteredCandsForStats]);
-
-  // Education level bar data
-  const eduData = useMemo(() => {
-    const ORDER = ["Bac+2", "Bac+3", "Bac+5", "Bac+8"] as const;
-    const map = filteredCandsForStats.reduce((acc, c) => {
-      const lvl = c.educationLevel || "Bac+2";
-      if (!acc[lvl]) acc[lvl] = { count: 0, sum: 0 };
-      acc[lvl].count += 1;
-      acc[lvl].sum += overallAverage(c);
-      return acc;
-    }, {} as Record<string, { count: number, sum: number }>);
-    return ORDER.map((lvl) => ({ 
-      level: lvl, count: map[lvl]?.count || 0, avg: map[lvl]?.count > 0 ? Number((map[lvl].sum / map[lvl].count).toFixed(1)) : 0 
-    }));
-  }, [filteredCandsForStats]);
-
-  const insights = useMemo(() => {
-    const getBest = (data: any[], nameKey: string) => {
-      const valid = data.filter(d => (d.count || d.value) >= 2);
-      if (!valid.length) return { name: "-", avg: 0 };
-      return valid.reduce((prev, current) => (prev.avg > current.avg) ? prev : current);
-    };
-    return {
-      topEdu: getBest(eduData, "level"),
-      topGender: getBest(genderData, "name"),
-      topAge: getBest(ageData, "range")
-    };
-  }, [eduData, genderData, ageData]);
-
-  const activeCohorts = useMemo(() => {
-    return [...filteredPromosForStats]
-      .filter((p) => promotionStatus(p) === "Active")
-      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-      .slice(0, 3);
-  }, [filteredPromosForStats]);
-
   return (
     <div className="space-y-6">
+      <ReminderContextBanner />
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -312,11 +193,11 @@ function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <KpiCard label="Total Promotions" value={kpis.totalPromos} icon={GraduationCap} />
-        <KpiCard label="Active Candidates" value={kpis.activeCands} icon={Users} tone="success" />
-        <KpiCard label="Global Pass Rate" value={`${kpis.passRate}%`} icon={TrendingUp} tone="success" hint="Avg. score ≥ 2.5/5" />
-        <KpiCard label="Global Avg. Score" value={`${kpis.globalAvg}`} icon={Activity} tone="primary" hint="Out of 5" />
-        <KpiCard label="Global Turnover" value={`${kpis.turnover}%`} icon={AlertTriangle} tone="warning" hint="Dismissed or dropped" />
+        <KpiCard label="Total Promotions" value={statsLoading ? "…" : kpis.totalPromos} icon={GraduationCap} />
+        <KpiCard label="Active Candidates" value={statsLoading ? "…" : kpis.activeCands} icon={Users} tone="success" />
+        <KpiCard label="Global Pass Rate" value={statsLoading ? "…" : `${kpis.passRate}%`} icon={TrendingUp} tone="success" hint="Avg. score ≥ 2.5/5" />
+        <KpiCard label="Global Avg. Score" value={statsLoading ? "…" : `${kpis.globalAvg}`} icon={Activity} tone="primary" hint="Out of 5" />
+        <KpiCard label="Global Turnover" value={statsLoading ? "…" : `${kpis.turnover}%`} icon={AlertTriangle} tone="warning" hint="Dismissed or dropped" />
       </div>
 
       {/* Analytics Header & Toggle */}
@@ -346,7 +227,9 @@ function DashboardPage() {
             <CardTitle className="text-sm font-semibold">Education Level</CardTitle>
           </CardHeader>
           <CardContent>
-            {candidates.length === 0 ? (
+            {statsLoading ? (
+              <EmptyState title="Loading" description="Fetching dashboard statistics..." icon={BarChart3} />
+            ) : !hasCandidateData ? (
               <EmptyState title="No Data" description="Not enough candidate data." icon={BarChart3} />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -379,7 +262,9 @@ function DashboardPage() {
             <CardTitle className="text-sm font-semibold">Gender Distribution</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center">
-            {genderData.length === 0 ? (
+            {statsLoading ? (
+              <EmptyState title="Loading" description="Fetching dashboard statistics..." icon={PieChartIcon} />
+            ) : genderData.length === 0 ? (
               <EmptyState title="No Data" description="Not enough candidate data." icon={PieChartIcon} />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -425,7 +310,9 @@ function DashboardPage() {
             <CardTitle className="text-sm font-semibold">Age Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            {candidates.length === 0 ? (
+            {statsLoading ? (
+              <EmptyState title="Loading" description="Fetching dashboard statistics..." icon={BarChart3} />
+            ) : !hasCandidateData ? (
               <EmptyState title="No Data" description="Not enough candidate data." icon={BarChart3} />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
@@ -467,7 +354,14 @@ function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {activeCohorts.length === 0 ? (
+          {statsLoading ? (
+            <div className="py-12">
+              <EmptyState
+                title="Loading"
+                description="Fetching active promotions..."
+              />
+            </div>
+          ) : activeCohorts.length === 0 ? (
             <div className="py-12">
               <EmptyState 
                 title="No Active Promotions Found" 
@@ -476,16 +370,7 @@ function DashboardPage() {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {activeCohorts.map((p) => {
-                  const progress = promotionProgress(p);
-                  const promoCands = candidates.filter((c) => c.promotionId === p.id && !c.archived);
-                  const avg =
-                    promoCands.length === 0
-                      ? 0
-                      : promoCands.reduce((a, c) => a + overallAverage(c), 0) / promoCands.length;
-                  const pr = passRate(promoCands);
-                  
-                  return (
+              {activeCohorts.map((p) => (
                     <Card key={p.id} className="hover:shadow-md transition-all hover:border-primary/20 group">
                       <CardContent className="p-5 space-y-4">
                         <div className="flex items-start justify-between gap-2">
@@ -493,7 +378,7 @@ function DashboardPage() {
                             <p className="text-xs font-mono text-muted-foreground">{p.id}</p>
                             <h3 className="font-semibold truncate text-lg">{p.name}</h3>
                           </div>
-                          <StatusBadge status={promotionStatus(p)} />
+                          <StatusBadge status={p.status} />
                         </div>
                         
                         <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 p-2 rounded-md">
@@ -507,31 +392,31 @@ function DashboardPage() {
                             <span className="text-muted-foreground font-medium">
                               Progress
                             </span>
-                            <span className="font-semibold">{progress.pct}%</span>
+                            <span className="font-semibold">{p.progress.pct}%</span>
                           </div>
                           <Progress 
-                            value={progress.pct} 
+                            value={p.progress.pct} 
                             className="h-2"
-                            indicatorClassName={progress.pct === 100 ? "bg-success" : "bg-primary"}
+                            indicatorClassName={p.progress.pct === 100 ? "bg-success" : "bg-primary"}
                           />
                           <p className="text-[10px] text-muted-foreground mt-1 text-right">
-                            {progress.workingDone} / {progress.totalWorking} working days
+                            {p.progress.workingDone} / {p.progress.totalWorking} working days
                           </p>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2 text-center text-sm pt-2 border-t border-border/40">
                           <div className="flex flex-col items-center p-2 rounded-md hover:bg-muted/50 transition-colors">
-                            <span className="font-bold text-foreground text-lg">{promoCands.length}</span>
+                            <span className="font-bold text-foreground text-lg">{p.candidateCount}</span>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Cands</span>
                           </div>
                           <div className="flex flex-col items-center p-2 rounded-md hover:bg-muted/50 transition-colors">
-                            <span className={`font-bold text-lg ${pr >= 70 ? 'text-success' : pr >= 50 ? 'text-warning-foreground' : 'text-destructive'}`}>
-                              {pr}%
+                            <span className={`font-bold text-lg ${p.passRate >= 70 ? 'text-success' : p.passRate >= 50 ? 'text-warning-foreground' : 'text-destructive'}`}>
+                              {p.passRate}%
                             </span>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Pass</span>
                           </div>
                           <div className="flex flex-col items-center p-2 rounded-md hover:bg-muted/50 transition-colors">
-                            <span className="font-bold text-foreground text-lg">{avg.toFixed(1)}</span>
+                            <span className="font-bold text-foreground text-lg">{p.avgScore}</span>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Avg</span>
                           </div>
                         </div>
@@ -543,8 +428,7 @@ function DashboardPage() {
                         </Button>
                       </CardContent>
                     </Card>
-                  );
-                })}
+                  ))}
               </div>
           )}
         </CardContent>

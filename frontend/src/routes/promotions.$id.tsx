@@ -56,6 +56,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { AddCandidateDialog } from "@/components/add-candidate-dialog";
 import { EditCandidateDialog } from "@/components/edit-candidate-dialog";
+import { ReminderContextBanner } from "@/components/reminder-context-banner";
 import {
   exportPromotionPDF, exportPromotionExcel, exportPromotionHTML,
 } from "@/lib/exports";
@@ -66,6 +67,12 @@ export const Route = createFileRoute("/promotions/$id")({
       { title: `${params.id} — CareerHub` },
       { name: "description", content: `Detailed dashboard for promotion ${params.id}` },
     ],
+  }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab:
+      search.tab === "overview" || search.tab === "candidates" || search.tab === "demographics"
+        ? search.tab
+        : undefined,
   }),
   component: PromotionDetail,
 });
@@ -118,6 +125,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 function PromotionDetail() {
   const { id } = Route.useParams();
+  const { tab: tabFromSearch } = Route.useSearch();
   const promotion =
     useStore((s) => s.promotions.find((p) => p.id === id)) ??
     useStore((s) => s.archivedPromotions.find((p) => p.id === id));
@@ -138,6 +146,7 @@ function PromotionDetail() {
   const addCandidate = useStore((s) => s.addCandidate);
   const hardDeleteCandidate = useStore((s) => s.hardDeleteCandidate);
   const nav = useNavigate();
+  const [activeTab, setActiveTab] = useState(tabFromSearch ?? "candidates");
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -148,6 +157,10 @@ function PromotionDetail() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editingCandidate = candidates.find((c) => c.id === editingCandidateId) ?? null;
+
+  useEffect(() => {
+    if (tabFromSearch) setActiveTab(tabFromSearch);
+  }, [tabFromSearch]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -404,6 +417,8 @@ function PromotionDetail() {
         </Button>
       </div>
 
+      <ReminderContextBanner />
+
       <Card>
         <CardContent className="p-6 space-y-4">
           <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -537,7 +552,7 @@ function PromotionDetail() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="candidates" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="candidates">Candidates List</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>

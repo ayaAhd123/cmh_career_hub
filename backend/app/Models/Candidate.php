@@ -11,7 +11,7 @@ class Candidate extends Model
 
     protected $fillable = [
         'promotion_id', 'first_name', 'last_name', 'email', 'phone',
-        'recruitment_date', 'education_level', 'diploma_specialty',
+        'recruitment_date', 'age', 'gender', 'photo', 'education_level', 'diploma_specialty',
         'diploma_average', 'state', 'overall_avg', 'category',
     ];
 

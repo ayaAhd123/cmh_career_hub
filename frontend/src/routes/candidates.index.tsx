@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CategoryBadge, StatusBadge } from "@/components/badges";
 import { EditCandidateDialog } from "@/components/edit-candidate-dialog";
-import { categoryFor, overallAverage } from "@/lib/calc";
 import {
   ArrowRight, Search, X, Download, ChevronDown, Filter,
   FileText, FileCode, Sheet, Pencil, Trash2
@@ -28,15 +27,31 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type {
-  Candidate,
   CandidateStatus,
   EducationLevel,
   Gender,
   Category,
 } from "@/lib/types";
+import {
+  type CandidateListItem,
+  fetchCandidates,
+  updateCandidateApi,
+  deleteCandidateApi,
+  exportCandidatesApi,
+  downloadBlob,
+} from "@/lib/candidate-api";
+import { exportCandidatesExcel } from "@/lib/candidate-export";
+import { formatGenderDisplay, type ExportLocale } from "@/lib/export-i18n";
+import { ReminderContextBanner } from "@/components/reminder-context-banner";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/candidates/")({
   head: () => ({ meta: [{ title: "All Candidates — CareerHub" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    promotion_id: typeof search.promotion_id === "string" ? search.promotion_id : undefined,
+    category: typeof search.category === "string" ? search.category : undefined,
+    status: typeof search.status === "string" ? search.status : undefined,
+  }),
   component: AllCandidates,
 });
 
@@ -54,175 +69,190 @@ const SORT_OPTIONS = [
 ];
 
 function AllCandidates() {
-  const allCandidates = useStore((s) => s.candidates);
+  const search = Route.useSearch();
   const promotions = useStore((s) => s.promotions);
-  const hardDeleteCandidate = useStore((s) => s.hardDeleteCandidate);
+  const loadPromotions = useStore((s) => s.loadPromotions);
 
+  const [candidates, setCandidates] = useState<CandidateListItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"All" | CandidateStatus>("All");
+  const [statusFilter, setStatusFilter] = useState<"All" | CandidateStatus>(() =>
+    search.status && STATUS_OPTIONS.includes(search.status as CandidateStatus)
+      ? (search.status as CandidateStatus)
+      : "All",
+  );
   const [genderFilter, setGenderFilter] = useState<"All" | Gender>("All");
   const [eduFilter, setEduFilter] = useState<"All" | EducationLevel>("All");
-  const [categoryFilter, setCategoryFilter] = useState<"All" | Category>("All");
-  const [promoFilter, setPromoFilter] = useState<"All" | string>("All");
+  const [categoryFilter, setCategoryFilter] = useState<"All" | Category>(() =>
+    search.category && CATEGORY_OPTIONS.includes(search.category as Category)
+      ? (search.category as Category)
+      : "All",
+  );
+  const [promoFilter, setPromoFilter] = useState<"All" | string>(() => search.promotion_id ?? "All");
   const [sortBy, setSortBy] = useState("avg_desc");
 
   const activePromotions = useMemo(() => promotions.filter((p) => !p.archived), [promotions]);
-  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
-  const [deleteCandidate, setDeleteCandidate] = useState<Candidate | null>(null);
+  const [editingCandidate, setEditingCandidate] = useState<CandidateListItem | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<CandidateListItem | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [exportLang, setExportLang] = useState<ExportLocale>("en");
 
-  const filtered = useMemo(() => {
-    let list = allCandidates.filter((c) => !c.archived);
+  const apiFilters = useMemo(
+    () => ({
+      q: q.trim() || undefined,
+      status: statusFilter,
+      gender: genderFilter,
+      education_level: eduFilter,
+      category: categoryFilter,
+      promotion_id: promoFilter,
+      sort: sortBy,
+    }),
+    [q, statusFilter, genderFilter, eduFilter, categoryFilter, promoFilter, sortBy],
+  );
 
-    if (q.trim()) {
-      const lower = q.toLowerCase();
-      list = list.filter(
-        (c) =>
-          `${c.firstName} ${c.lastName}`.toLowerCase().includes(lower) ||
-          c.email.toLowerCase().includes(lower) ||
-          c.phone?.toLowerCase().includes(lower)
-      );
+  const loadCandidates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetchCandidates(apiFilters);
+      setCandidates(response.data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load candidates");
+    } finally {
+      setLoading(false);
     }
-    if (statusFilter !== "All") list = list.filter((c) => c.status === statusFilter);
-    if (genderFilter !== "All") list = list.filter((c) => c.gender === genderFilter);
-    if (eduFilter !== "All") list = list.filter((c) => c.educationLevel === eduFilter);
-    if (categoryFilter !== "All") list = list.filter((c) => categoryFor(overallAverage(c)) === categoryFilter);
-    if (promoFilter !== "All") list = list.filter((c) => c.promotionId === promoFilter);
+  }, [apiFilters]);
 
-    list = [...list].sort((a, b) => {
-      switch (sortBy) {
-        case "avg_asc": return overallAverage(a) - overallAverage(b);
-        case "name_asc": return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-        case "name_desc": return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`);
-        case "date_asc": return new Date(a.recruitmentDate).getTime() - new Date(b.recruitmentDate).getTime();
-        case "date_desc": return new Date(b.recruitmentDate).getTime() - new Date(a.recruitmentDate).getTime();
-        default: return overallAverage(b) - overallAverage(a);
-      }
-    });
+  useEffect(() => {
+    void loadPromotions();
+  }, [loadPromotions]);
 
-    return list;
-  }, [allCandidates, q, statusFilter, genderFilter, eduFilter, categoryFilter, promoFilter, sortBy]);
+  useEffect(() => {
+    if (search.promotion_id) setPromoFilter(search.promotion_id);
+    if (search.category && CATEGORY_OPTIONS.includes(search.category as Category)) {
+      setCategoryFilter(search.category as Category);
+    }
+    if (search.status && STATUS_OPTIONS.includes(search.status as CandidateStatus)) {
+      setStatusFilter(search.status as CandidateStatus);
+    }
+  }, [search.promotion_id, search.category, search.status]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadCandidates();
+    }, q ? 300 : 0);
+
+    return () => clearTimeout(timer);
+  }, [loadCandidates, q]);
 
   const hasFilters = q || statusFilter !== "All" || genderFilter !== "All" || eduFilter !== "All" || categoryFilter !== "All" || promoFilter !== "All";
 
   const clearFilters = () => {
-    setQ(""); setStatusFilter("All"); setGenderFilter("All");
-    setEduFilter("All"); setCategoryFilter("All"); setPromoFilter("All"); setSortBy("avg_desc");
+    setQ("");
+    setStatusFilter("All");
+    setGenderFilter("All");
+    setEduFilter("All");
+    setCategoryFilter("All");
+    setPromoFilter("All");
+    setSortBy("avg_desc");
   };
 
-  // ── Export helpers ────────────────────────────────────────────────
-  const exportCSV = () => {
-    const headers = ["First Name", "Last Name", "Email", "Phone", "Gender", "Age", "Education", "Promotion", "Status", "Avg Score", "Category", "Recruitment Date"];
-    const rows = filtered.map((c) => {
-      const avg = overallAverage(c);
-      const promo = promotions.find((p) => p.id === c.promotionId)?.name ?? "";
-      return [
-        c.firstName, c.lastName, c.email, c.phone, c.gender, c.age,
-        c.educationLevel, promo, c.status, avg.toFixed(2), categoryFor(avg), c.recruitmentDate
-      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
-    });
-    const csv = [headers.join(","), ...rows].join("\n");
-    triggerDownload(new Blob([csv], { type: "text/csv" }), "candidates.csv");
+  const handleExport = async (format: "xlsx" | "json" | "html") => {
+    try {
+      if (format === "xlsx") {
+        if (candidates.length === 0) return;
+        exportCandidatesExcel(candidates, exportLang);
+        return;
+      }
+
+      const blob = await exportCandidatesApi(format, apiFilters, exportLang);
+      downloadBlob(blob, `candidates.${format}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export candidates");
+    }
   };
 
-  const exportJSON = () => {
-    const data = filtered.map((c) => {
-      const avg = overallAverage(c);
-      const promo = promotions.find((p) => p.id === c.promotionId)?.name ?? "";
-      return { ...c, promotionName: promo, avgScore: avg, category: categoryFor(avg) };
-    });
-    triggerDownload(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), "candidates.json");
+  const handleUpdate = async (id: string, data: Parameters<typeof updateCandidateApi>[1]) => {
+    await updateCandidateApi(id, data);
+    await loadCandidates();
   };
 
-  const exportHTML = () => {
-    const rows = filtered.map((c) => {
-      const avg = overallAverage(c);
-      const promo = promotions.find((p) => p.id === c.promotionId)?.name ?? "—";
-      return `<tr>
-        <td>${c.firstName} ${c.lastName}</td>
-        <td>${c.email}</td>
-        <td>${c.phone ?? ""}</td>
-        <td>${c.gender}</td>
-        <td>${c.age ?? ""}</td>
-        <td>${c.educationLevel}</td>
-        <td>${promo}</td>
-        <td>${c.status}</td>
-        <td>${avg.toFixed(2)}</td>
-        <td>${categoryFor(avg)}</td>
-        <td>${c.recruitmentDate}</td>
-      </tr>`;
-    }).join("\n");
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>All Candidates — CareerHub</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
-    h1 { font-size: 22px; margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { background: #f3f4f6; text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; }
-    td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
-    tr:last-child td { border-bottom: none; }
-  </style>
-</head>
-<body>
-  <h1>All Candidates (${filtered.length})</h1>
-  <p style="color:#6b7280;font-size:12px;margin-bottom:12px;">Exported on ${new Date().toLocaleDateString()}</p>
-  <table>
-    <thead><tr>
-      <th>Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Age</th>
-      <th>Education</th><th>Promotion</th><th>Status</th><th>Avg</th><th>Category</th><th>Date</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-</body>
-</html>`;
-    triggerDownload(new Blob([html], { type: "text/html" }), "candidates.html");
+  const handleDelete = async () => {
+    if (!deleteCandidate) return;
+    try {
+      await deleteCandidateApi(deleteCandidate.id);
+      toast.success("Candidate deleted");
+      setDeleteCandidate(null);
+      setDeleteConfirmText("");
+      await loadCandidates();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to delete candidate");
+    }
   };
-
-  function triggerDownload(blob: Blob, filename: string) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
 
   const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Sort";
 
   return (
     <div className="space-y-6">
+      <ReminderContextBanner />
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">All Candidates</h1>
           <p className="text-muted-foreground mt-1">
-            {filtered.length} candidate{filtered.length !== 1 ? "s" : ""} found
+            {loading ? "Loading…" : `${candidates.length} candidate${candidates.length !== 1 ? "s" : ""} found`}
           </p>
         </div>
 
-        {/* Export */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2" disabled={loading || candidates.length === 0}>
               <Download className="h-4 w-4" />
               Export
               <ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Export {filtered.length} candidates</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Export {candidates.length} candidates</DropdownMenuLabel>
+            <div className="px-2 pb-2 text-xs text-muted-foreground">
+              Grouped by promotion in export. Includes all statuses unless filtered.
+            </div>
+            <div className="px-2 pb-2">
+              <div className="text-xs text-muted-foreground mb-1.5">Language / Langue</div>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={exportLang === "en" ? "default" : "outline"}
+                  className="h-7 flex-1 px-2"
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => setExportLang("en")}
+                >
+                  EN
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={exportLang === "fr" ? "default" : "outline"}
+                  className="h-7 flex-1 px-2"
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => setExportLang("fr")}
+                >
+                  FR
+                </Button>
+              </div>
+            </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={exportCSV}>
+            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => void handleExport("xlsx")}>
               <Sheet className="h-4 w-4 text-emerald-600" />
-              Export as CSV (Excel)
+              Export as Excel
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={exportJSON}>
+            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => void handleExport("json")}>
               <FileCode className="h-4 w-4 text-blue-600" />
               Export as JSON
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={exportHTML}>
+            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => void handleExport("html")}>
               <FileText className="h-4 w-4 text-rose-600" />
               Export as HTML
             </DropdownMenuItem>
@@ -230,9 +260,7 @@ function AllCandidates() {
         </DropdownMenu>
       </div>
 
-      {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -253,7 +281,6 @@ function AllCandidates() {
           )}
         </div>
 
-        {/* Status filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 bg-background">
@@ -263,7 +290,7 @@ function AllCandidates() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuRadioGroup value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+            <DropdownMenuRadioGroup value={statusFilter} onValueChange={(v) => setStatusFilter(v as CandidateStatus | "All")}>
               <DropdownMenuRadioItem value="All">All Statuses</DropdownMenuRadioItem>
               {STATUS_OPTIONS.map((s) => (
                 <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
@@ -272,25 +299,23 @@ function AllCandidates() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Gender filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 bg-background">
-              {genderFilter === "All" ? "Gender" : genderFilter}
+              {genderFilter === "All" ? "Gender" : formatGenderDisplay(genderFilter)}
               <ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuRadioGroup value={genderFilter} onValueChange={(v) => setGenderFilter(v as any)}>
+            <DropdownMenuRadioGroup value={genderFilter} onValueChange={(v) => setGenderFilter(v as Gender | "All")}>
               <DropdownMenuRadioItem value="All">All Genders</DropdownMenuRadioItem>
               {GENDER_OPTIONS.map((g) => (
-                <DropdownMenuRadioItem key={g} value={g}>{g}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem key={g} value={g}>{formatGenderDisplay(g)}</DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Education filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 bg-background">
@@ -299,7 +324,7 @@ function AllCandidates() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuRadioGroup value={eduFilter} onValueChange={(v) => setEduFilter(v as any)}>
+            <DropdownMenuRadioGroup value={eduFilter} onValueChange={(v) => setEduFilter(v as EducationLevel | "All")}>
               <DropdownMenuRadioItem value="All">All Levels</DropdownMenuRadioItem>
               {EDU_OPTIONS.map((e) => (
                 <DropdownMenuRadioItem key={e} value={e}>{e}</DropdownMenuRadioItem>
@@ -308,7 +333,6 @@ function AllCandidates() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Category filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 bg-background">
@@ -317,7 +341,7 @@ function AllCandidates() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuRadioGroup value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
+            <DropdownMenuRadioGroup value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as Category | "All")}>
               <DropdownMenuRadioItem value="All">All Categories</DropdownMenuRadioItem>
               {CATEGORY_OPTIONS.map((c) => (
                 <DropdownMenuRadioItem key={c} value={c}>{c}</DropdownMenuRadioItem>
@@ -326,19 +350,23 @@ function AllCandidates() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Promotion filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 bg-background max-w-[180px]">
               <span className="truncate">
-                {promoFilter === "All" ? "Promotion" : (promotions.find((p) => p.id === promoFilter)?.name ?? "Promotion")}
+                {promoFilter === "All"
+                  ? "Promotion"
+                  : promoFilter === "none"
+                    ? "Unassigned"
+                    : (promotions.find((p) => p.id === promoFilter)?.name ?? promoFilter)}
               </span>
               <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="max-h-60 overflow-y-auto">
-            <DropdownMenuRadioGroup value={promoFilter} onValueChange={(v) => setPromoFilter(v)}>
+            <DropdownMenuRadioGroup value={promoFilter} onValueChange={setPromoFilter}>
               <DropdownMenuRadioItem value="All">All Promotions</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="none">Unassigned</DropdownMenuRadioItem>
               {activePromotions.map((p) => (
                 <DropdownMenuRadioItem key={p.id} value={p.id}>{p.name}</DropdownMenuRadioItem>
               ))}
@@ -346,7 +374,6 @@ function AllCandidates() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Sort */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 bg-background">
@@ -365,7 +392,6 @@ function AllCandidates() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Clear */}
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground hover:text-foreground">
             <X className="h-3.5 w-3.5 mr-1.5" />
@@ -374,16 +400,19 @@ function AllCandidates() {
         )}
       </div>
 
-      {/* Table */}
       <Card>
         <CardHeader className="pb-0">
           <CardTitle className="text-base font-semibold">
-            {filtered.length} candidate{filtered.length !== 1 ? "s" : ""}
-            {hasFilters && <span className="text-muted-foreground font-normal text-sm ml-1">(filtered)</span>}
+            {loading ? "Loading…" : `${candidates.length} candidate${candidates.length !== 1 ? "s" : ""}`}
+            {hasFilters && !loading && <span className="text-muted-foreground font-normal text-sm ml-1">(filtered)</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto pt-4">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+              <p className="font-medium">Loading candidates…</p>
+            </div>
+          ) : candidates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
               <p className="font-medium">No candidates found</p>
               <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
@@ -407,62 +436,58 @@ function AllCandidates() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => {
-                  const a = overallAverage(c);
-                  const promo = promotions.find((p) => p.id === c.promotionId);
-                  return (
-                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                      <td className="py-2.5 px-3 font-medium whitespace-nowrap">
-                        {c.firstName} {c.lastName}
-                      </td>
-                      <td className="py-2.5 px-3 text-muted-foreground text-xs">{c.email}</td>
-                      <td className="py-2.5 px-3 text-xs text-muted-foreground">{c.gender}</td>
-                      <td className="py-2.5 px-3 text-xs">{c.educationLevel}</td>
-                      <td className="py-2.5 px-3 text-xs">
-                        {promo ? (
-                          <Link
-                            to="/promotions/$id"
-                            params={{ id: promo.id }}
-                            className="text-blue-600 transition-colors hover:text-orange-500 hover:bg-transparent"
-                          >
-                            {promo.name}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 font-semibold tabular-nums">{a.toFixed(2)}</td>
-                      <td className="py-2.5 px-3"><CategoryBadge category={categoryFor(a)} /></td>
-                      <td className="py-2.5 px-3"><StatusBadge status={c.status} /></td>
-                      <td className="py-2.5 px-3 flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Edit candidate"
-                          onClick={() => setEditingCandidate(c)}
+                {candidates.map((c) => (
+                  <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                    <td className="py-2.5 px-3 font-medium whitespace-nowrap">
+                      {c.firstName} {c.lastName}
+                    </td>
+                    <td className="py-2.5 px-3 text-muted-foreground text-xs">{c.email}</td>
+                    <td className="py-2.5 px-3 text-xs text-muted-foreground">{formatGenderDisplay(String(c.gender))}</td>
+                    <td className="py-2.5 px-3 text-xs">{c.educationLevel}</td>
+                    <td className="py-2.5 px-3 text-xs">
+                      {c.promotionId ? (
+                        <Link
+                          to="/promotions/$id"
+                          params={{ id: c.promotionId }}
+                          className="text-blue-600 transition-colors hover:text-orange-500 hover:bg-transparent"
                         >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Delete candidate"
-                          onClick={() => {
-                            setDeleteCandidate(c);
-                            setDeleteConfirmText("");
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button asChild size="sm" variant="ghost">
-                          <Link to="/candidates/$id" params={{ id: c.id }}>
-                            <ArrowRight className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                          {c.promotionName || c.promotionId}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold tabular-nums">{c.avgScore.toFixed(2)}</td>
+                    <td className="py-2.5 px-3"><CategoryBadge category={c.category} /></td>
+                    <td className="py-2.5 px-3"><StatusBadge status={c.status} /></td>
+                    <td className="py-2.5 px-3 flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Edit candidate"
+                        onClick={() => setEditingCandidate(c)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Delete candidate"
+                        onClick={() => {
+                          setDeleteCandidate(c);
+                          setDeleteConfirmText("");
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Button asChild size="sm" variant="ghost">
+                        <Link to="/candidates/$id" params={{ id: c.id }}>
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}
@@ -475,6 +500,7 @@ function AllCandidates() {
         onOpenChange={(open) => {
           if (!open) setEditingCandidate(null);
         }}
+        onSave={handleUpdate}
       />
 
       <AlertDialog
@@ -508,12 +534,7 @@ function AllCandidates() {
             <AlertDialogAction
               className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteConfirmText !== "DELETE"}
-              onClick={() => {
-                if (!deleteCandidate) return;
-                hardDeleteCandidate(deleteCandidate.id);
-                setDeleteCandidate(null);
-                setDeleteConfirmText("");
-              }}
+              onClick={() => void handleDelete()}
             >
               Delete candidate
             </AlertDialogAction>

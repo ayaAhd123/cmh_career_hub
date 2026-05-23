@@ -76,6 +76,50 @@ export interface Promotion {
   dbId?: number;
 }
 
+export interface DashboardKpis {
+  totalPromos: number;
+  activeCands: number;
+  passRate: number;
+  globalAvg: string;
+  turnover: number;
+}
+
+export interface DemographicBucket {
+  count?: number;
+  avg: number;
+  level?: string;
+  name?: string;
+  value?: number;
+  range?: string;
+}
+
+export interface ActivePromotionStat {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: PromotionStatus;
+  archived: boolean;
+  progress: {
+    pct: number;
+    workingDone: number;
+    totalWorking: number;
+  };
+  candidateCount: number;
+  passRate: number;
+  avgScore: string;
+}
+
+export interface DashboardStats {
+  kpis: DashboardKpis;
+  demographics: {
+    education: Array<{ level: string; count: number; avg: number }>;
+    gender: Array<{ name: string; value: number; avg: number }>;
+    age: Array<{ range: string; count: number; avg: number }>;
+  };
+  activePromotions: ActivePromotionStat[];
+}
+
 export const emptySkills = (): Skills => ({
   discipline: { discipline: 0, motivation: 0, communication: 0, listening: 0 },
   work: { initiative: 0, analysis: 0, organization: 0, intellectual: 0, pace: 0, speed: 0 },
