@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useAuthHydrated } from "@/lib/auth-hydration";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const login = useAuth((s) => s.login);
+  const hydrated = useAuthHydrated();
   const isAuth = useAuth((s) => s.isAuthenticated);
   const nav = useNavigate();
 
@@ -21,8 +23,9 @@ function LoginPage() {
   const [password, setPassword] = useState("1234");
 
   useEffect(() => {
-    if (isAuth) nav({ to: "/" });
-  }, [isAuth, nav]);
+    if (!hydrated || !isAuth) return;
+    nav({ to: "/", replace: true });
+  }, [hydrated, isAuth, nav]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

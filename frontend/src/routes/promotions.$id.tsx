@@ -71,8 +71,8 @@ export const Route = createFileRoute("/promotions/$id")({
 });
 
 const COLORS: Record<string, string> = {
-  Excellent: "hsl(165 60% 45%)",
-  Good: "hsl(220 70% 55%)",
+  Excellent: "hsl(165 55% 38%)",
+  Good: "hsl(155 45% 72%)",
   Passable: "hsl(40 90% 55%)",
   Critical: "hsl(15 75% 55%)",
 };
@@ -277,18 +277,7 @@ function PromotionDetail() {
     reader.readAsBinaryString(file);
   };
 
-  if (!promotion) {
-    return (
-      <div className="text-center py-20">
-        <h2 className="text-xl font-semibold">Promotion not found</h2>
-        <Button asChild className="mt-4">
-          <Link to="/">Back to dashboard</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  const progress = promotionProgress(promotion);
+  const progress = promotion ? promotionProgress(promotion) : 0;
 
   const categoryDist = useMemo(() => {
     const counts = { Excellent: 0, Good: 0, Passable: 0, Critical: 0 };
@@ -391,6 +380,18 @@ function PromotionDetail() {
     const cat = categoryFor(overallAverage(c));
     return cat === "Passable" || cat === "Critical";
   }).length;
+
+  if (!promotion) {
+    return (
+      <div className="text-center py-20">
+        <h2 className="text-xl font-semibold">Promotion not found</h2>
+        <p className="text-sm text-muted-foreground mt-2">Loading or this promotion does not exist.</p>
+        <Button asChild className="mt-4">
+          <Link to="/">Back to dashboard</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

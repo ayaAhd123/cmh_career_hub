@@ -5,6 +5,15 @@ import type { Candidate, Promotion, Category } from "./types";
 import {
   categoryFor, disciplineAvg, formatDate, overallAverage, passRate, skillsAvg, testsAvg, turnoverRate, workAvg,
 } from "./calc";
+import {
+  categoryLabel,
+  getExportLabels,
+  PROMOTION_SKILL_COLUMNS,
+  pdfSafeText,
+  resolveExportLocale,
+  SKILL_NAMES_FR,
+  type ExportOptions,
+} from "./export-labels";
 
 const downloadFile = (data: BlobPart, name: string, type: string) => {
   const blob = new Blob([data], { type });
@@ -16,40 +25,40 @@ const downloadFile = (data: BlobPart, name: string, type: string) => {
   URL.revokeObjectURL(url);
 };
 
-const disciplineRows = (c: Candidate) => [
-  ["Discipline et ponctualité", c.skills.discipline.discipline.toFixed(1)],
-  ["Motivation", c.skills.discipline.motivation.toFixed(1)],
-  ["Communication", c.skills.discipline.communication.toFixed(1)],
-  ["Sens de l'écoute", c.skills.discipline.listening.toFixed(1)],
-  ["Average", disciplineAvg(c.skills.discipline).toFixed(2)],
+const disciplineRows = (c: Candidate, averageLabel: string) => [
+  [SKILL_NAMES_FR.discipline, c.skills.discipline.discipline.toFixed(1)],
+  [SKILL_NAMES_FR.motivation, c.skills.discipline.motivation.toFixed(1)],
+  [SKILL_NAMES_FR.communication, c.skills.discipline.communication.toFixed(1)],
+  [SKILL_NAMES_FR.listening, c.skills.discipline.listening.toFixed(1)],
+  [averageLabel, disciplineAvg(c.skills.discipline).toFixed(2)],
 ];
-const workRows = (c: Candidate) => [
-  ["Sens de l'initiative", c.skills.work.initiative.toFixed(1)],
-  ["Capacité d'analyse", c.skills.work.analysis.toFixed(1)],
-  ["Organisation", c.skills.work.organization.toFixed(1)],
-  ["Aptitudes intellectuelles", c.skills.work.intellectual.toFixed(1)],
-  ["Rythme d'avancement", c.skills.work.pace.toFixed(1)],
-  ["Rapidité d'exécution", c.skills.work.speed.toFixed(1)],
-  ["Average", workAvg(c.skills.work).toFixed(2)],
+const workRows = (c: Candidate, averageLabel: string) => [
+  [SKILL_NAMES_FR.initiative, c.skills.work.initiative.toFixed(1)],
+  [SKILL_NAMES_FR.analysis, c.skills.work.analysis.toFixed(1)],
+  [SKILL_NAMES_FR.organization, c.skills.work.organization.toFixed(1)],
+  [SKILL_NAMES_FR.intellectual, c.skills.work.intellectual.toFixed(1)],
+  [SKILL_NAMES_FR.pace, c.skills.work.pace.toFixed(1)],
+  [SKILL_NAMES_FR.speed, c.skills.work.speed.toFixed(1)],
+  [averageLabel, workAvg(c.skills.work).toFixed(2)],
 ];
 
 const categoryOrder: Category[] = ["Excellent", "Good", "Passable", "Critical"];
-const categoryRgb = (category: Category) => {
-  switch (category) {
-    case "Excellent": return [16, 185, 129] as const;
-    case "Good": return [59, 130, 246] as const;
-    case "Passable": return [245, 158, 11] as const;
-    case "Critical": return [239, 68, 68] as const;
-  }
+
+/** Export palette: Good uses light green (not blue) across PDF, Excel, and HTML. */
+const CATEGORY_EXPORT_COLORS: Record<
+  Category,
+  { rgb: readonly [number, number, number]; hex: string; lightRgb: readonly [number, number, number]; lightHex: string }
+> = {
+  Excellent: { rgb: [5, 150, 105], hex: "#059669", lightRgb: [167, 243, 208], lightHex: "A7F3D0" },
+  Good: { rgb: [52, 211, 153], hex: "#34D399", lightRgb: [240, 253, 244], lightHex: "F0FDF4" },
+  Passable: { rgb: [245, 158, 11], hex: "#F59E0B", lightRgb: [254, 243, 199], lightHex: "FEF3C7" },
+  Critical: { rgb: [239, 68, 68], hex: "#EF4444", lightRgb: [254, 226, 226], lightHex: "FEE2E2" },
 };
-const categoryHex = (category: Category) => {
-  switch (category) {
-    case "Excellent": return "#10B981";
-    case "Good": return "#3B82F6";
-    case "Passable": return "#F59E0B";
-    case "Critical": return "#EF4444";
-  }
-};
+
+const categoryRgb = (category: Category) => CATEGORY_EXPORT_COLORS[category].rgb;
+const categoryHex = (category: Category) => CATEGORY_EXPORT_COLORS[category].hex;
+const categoryLightRgb = (category: Category) => CATEGORY_EXPORT_COLORS[category].lightRgb;
+const categoryLightHex = (category: Category) => CATEGORY_EXPORT_COLORS[category].lightHex;
 
 const buildPromotionRankMap = (cands: Candidate[]) => {
   const sorted = [...cands].sort((a, b) => {
@@ -60,8 +69,8 @@ const buildPromotionRankMap = (cands: Candidate[]) => {
   return new Map(sorted.map((c, i) => [c.id, i + 1]));
 };
 
-const promotionCandidateRow = (c: Candidate, rank: number) => [
-  categoryFor(overallAverage(c)),
+const promotionCandidateRow = (c: Candidate, rank: number, locale: ReturnType<typeof resolveExportLocale>) => [
+  categoryLabel(categoryFor(overallAverage(c)), locale),
   `${c.firstName} ${c.lastName}`,
   c.skills.discipline.discipline.toFixed(1),
   c.skills.discipline.motivation.toFixed(1),
@@ -77,15 +86,18 @@ const promotionCandidateRow = (c: Candidate, rank: number) => [
   rank.toString(),
 ];
 
-export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
+export const exportCandidatePDF = (c: Candidate, promo?: Promotion, opts?: ExportOptions) => {
+  const locale = resolveExportLocale(opts);
+  const L = getExportLabels(locale);
   const doc = new jsPDF();
   const avg = overallAverage(c);
+  const generated = formatDate(new Date().toISOString());
   doc.setFontSize(20);
   doc.setTextColor(0, 102, 204);
-  doc.text("CareerHub - Candidate Report", 14, 20);
+  doc.text(L.candidateReportTitle, 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(`by CMH Cloud Marketing Hub - Generated ${formatDate(new Date().toISOString())}`, 14, 26);
+  doc.text(L.generatedBy(generated), 14, 26);
 
   doc.setFontSize(14);
   doc.setTextColor(30);
@@ -93,86 +105,83 @@ export const exportCandidatePDF = (c: Candidate, promo?: Promotion) => {
 
   autoTable(doc, {
     startY: 44,
-    head: [["Field", "Value"]],
+    head: [[L.field, L.value]],
     body: [
-      ["Email", c.email],
-      ["Phone", c.phone],
-      ["Recruitment Date", formatDate(c.recruitmentDate)],
-      ["Education", `${c.educationLevel} - ${c.diplomaName}`],
-      ["Diploma Average", c.diplomaAverage === "Not provided" ? "Not provided" : `${c.diplomaAverage}/20`],
-      ["Promotion", promo ? `${promo.id} ${promo.name}` : "—"],
-      ["Status", c.status],
+      [L.email, c.email],
+      [L.phone, c.phone],
+      [L.recruitmentDate, formatDate(c.recruitmentDate)],
+      [L.education, `${c.educationLevel} - ${c.diplomaName}`],
+      [L.diplomaAverage, c.diplomaAverage === "Not provided" ? L.notProvided : `${c.diplomaAverage}/20`],
+      [L.promotion, promo ? `${promo.id} ${promo.name}` : "—"],
+      [L.status, c.status],
     ],
     theme: "striped",
     headStyles: { fillColor: [0, 102, 204] },
   });
-  // Reordered: Modules -> Work Skills -> Discipline
   let y = (doc as any).lastAutoTable.finalY + 8;
   autoTable(doc, {
     startY: y,
-    head: [["Module", "Score /20"]],
+    head: [[L.module, L.scoreOutOf20]],
     body: c.modules.map((m) => [m.name, (m.score || 0).toFixed(2)]),
     headStyles: { fillColor: [0, 102, 204] },
   });
   y = (doc as any).lastAutoTable.finalY + 8;
   autoTable(doc, {
     startY: y,
-    head: [["Work Skills (/5)", "Score"]],
-    body: workRows(c),
+    head: [[L.workSkillsOutOf5, L.score]],
+    body: workRows(c, L.average),
     headStyles: { fillColor: [0, 102, 204] },
   });
   y = (doc as any).lastAutoTable.finalY + 8;
   autoTable(doc, {
     startY: y,
-    head: [["Discipline (/5)", "Score"]],
-    body: disciplineRows(c),
+    head: [[L.disciplineOutOf5, L.score]],
+    body: disciplineRows(c, L.average),
     headStyles: { fillColor: [0, 102, 204] },
   });
 
   y = (doc as any).lastAutoTable.finalY + 8;
   doc.setFontSize(12);
   doc.setTextColor(30);
-  doc.text(`Skills Average: ${skillsAvg(c.skills).toFixed(2)}/5`, 14, y);
-  doc.text(`Modules Average: ${testsAvg(c.modules).toFixed(2)}/20`, 14, y + 7);
-  doc.text(`Overall Average: ${avg.toFixed(2)}/5`, 14, y + 14);
-  doc.text(`Category: ${categoryFor(avg)}`, 14, y + 21);
-  doc.text(`Recommendation: ${avg >= 10 ? "PASS" : "FAIL"}`, 14, y + 28);
+  doc.text(`${L.skillsAverage}: ${skillsAvg(c.skills).toFixed(2)}/5`, 14, y);
+  doc.text(`${L.modulesAverage}: ${testsAvg(c.modules).toFixed(2)}/20`, 14, y + 7);
+  doc.text(`${L.overallAverage}: ${avg.toFixed(2)}/5`, 14, y + 14);
+  doc.text(`${L.category}: ${categoryLabel(categoryFor(avg), locale)}`, 14, y + 21);
+  doc.text(`${L.recommendation}: ${avg >= 10 ? L.pass : L.fail}`, 14, y + 28);
 
   doc.save(`${c.firstName}_${c.lastName}_report.pdf`);
 };
 
-export const exportCandidateExcel = (c: Candidate, promo?: Promotion) => {
-  // Single-sheet report with clear light colors and ordered sections: Info, Modules, Work Skills, Discipline
+export const exportCandidateExcel = (c: Candidate, promo?: Promotion, opts?: ExportOptions) => {
+  const locale = resolveExportLocale(opts);
+  const L = getExportLabels(locale);
   const wb = XLSX.utils.book_new();
   const rows: any[][] = [];
-  rows.push(["CareerHub Candidate Report"]);
+  rows.push([L.candidateReportTitle]);
   rows.push([]);
-  rows.push(["Name", `${c.firstName} ${c.lastName}`]);
-  rows.push(["Email", c.email]);
-  rows.push(["Phone", c.phone]);
-  rows.push(["Promotion", promo ? `${promo.id} - ${promo.name}` : ""]);
-  rows.push(["Education", `${c.educationLevel} - ${c.diplomaName}`]);
-  rows.push(["Status", c.status]);
-  rows.push(["Skills Average", `${skillsAvg(c.skills).toFixed(2)}/5`]);
-  rows.push(["Modules Average", `${testsAvg(c.modules).toFixed(2)}/20`]);
-  rows.push(["Overall Average", `${overallAverage(c).toFixed(2)}/5`]);
-  rows.push(["Category", categoryFor(overallAverage(c))]);
+  rows.push([L.name, `${c.firstName} ${c.lastName}`]);
+  rows.push([L.email, c.email]);
+  rows.push([L.phone, c.phone]);
+  rows.push([L.promotion, promo ? `${promo.id} - ${promo.name}` : ""]);
+  rows.push([L.education, `${c.educationLevel} - ${c.diplomaName}`]);
+  rows.push([L.status, c.status]);
+  rows.push([L.skillsAverage, `${skillsAvg(c.skills).toFixed(2)}/5`]);
+  rows.push([L.modulesAverage, `${testsAvg(c.modules).toFixed(2)}/20`]);
+  rows.push([L.overallAverage, `${overallAverage(c).toFixed(2)}/5`]);
+  rows.push([L.category, categoryLabel(categoryFor(overallAverage(c)), locale)]);
   rows.push([]);
 
-  // Modules section
-  rows.push(["Modules", "Score /20"]);
+  rows.push([L.modules, L.scoreOutOf20]);
   c.modules.forEach((m) => rows.push([m.name, (m.score || 0).toFixed(2)]));
-  rows.push(["Average", testsAvg(c.modules).toFixed(2)]);
+  rows.push([L.average, testsAvg(c.modules).toFixed(2)]);
   rows.push([]);
 
-  // Work Skills section
-  rows.push(["Work Skills", "Score /5"]);
-  workRows(c).forEach((r) => rows.push(r));
+  rows.push([L.workSkills, L.scoreOutOf5]);
+  workRows(c, L.average).forEach((r) => rows.push(r));
   rows.push([]);
 
-  // Discipline section
-  rows.push(["Discipline", "Score /5"]);
-  disciplineRows(c).forEach((r) => rows.push(r));
+  rows.push([L.discipline, L.scoreOutOf5]);
+  disciplineRows(c, L.average).forEach((r) => rows.push(r));
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
 
@@ -226,9 +235,9 @@ export const exportCandidateExcel = (c: Candidate, promo?: Promotion) => {
     return -1;
   };
 
-  const modulesHeaderRow = findRowIndex("Modules");
-  const workHeaderRow = findRowIndex("Work Skills");
-  const discHeaderRow = findRowIndex("Discipline");
+  const modulesHeaderRow = findRowIndex(L.modules);
+  const workHeaderRow = findRowIndex(L.workSkills);
+  const discHeaderRow = findRowIndex(L.discipline);
 
   if (modulesHeaderRow >= 0) {
     const ref = XLSX.utils.encode_cell({ c: 0, r: modulesHeaderRow });
@@ -259,69 +268,70 @@ export const exportCandidateExcel = (c: Candidate, promo?: Promotion) => {
   XLSX.writeFile(wb, `${c.firstName}_${c.lastName}_report.xlsx`);
 };
 
-export const exportCandidateHTML = (c: Candidate, promo?: Promotion) => {
+export const exportCandidateHTML = (c: Candidate, promo?: Promotion, opts?: ExportOptions) => {
+  const locale = resolveExportLocale(opts);
+  const L = getExportLabels(locale);
   const avg = overallAverage(c);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${c.firstName} ${c.lastName} — CareerHub Report</title>
+  const cat = categoryFor(avg);
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${c.firstName} ${c.lastName} — CareerHub</title>
 <style>body{font-family:Inter,system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;color:#1E293B}
 h1{color:#0066CC}h2{border-bottom:2px solid #0066CC;padding-bottom:6px;margin-top:30px}
 table{width:100%;border-collapse:collapse;margin:10px 0}th,td{padding:8px 12px;border:1px solid #E2E8F0;text-align:left}
 th{background:#F8FAFC}.badge{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:600;color:white}
-.excellent{background:#10B981}.good{background:#3B82F6}.passable{background:#F59E0B}.critical{background:#EF4444}</style></head><body>
-<h1>CareerHub — Candidate Report</h1><p style="color:#64748B">by CMH Cloud Marketing Hub</p>
+.excellent{background:#059669}.good{background:#34D399}.passable{background:#F59E0B}.critical{background:#EF4444}</style></head><body>
+<h1>${L.htmlCandidateTitle}</h1><p style="color:#64748B">CMH Cloud Marketing Hub</p>
 <h2>${c.firstName} ${c.lastName}</h2>
-<p><strong>Overall Average:</strong> ${avg.toFixed(2)}/5 — <span class="badge ${categoryFor(avg).toLowerCase()}">${categoryFor(avg)}</span></p>
+<p><strong>${L.htmlOverallAverage}</strong> ${avg.toFixed(2)}/5 — <span class="badge ${cat.toLowerCase()}">${categoryLabel(cat, locale)}</span></p>
 
-<!-- Personal infos -->
-<h2>Personal infos</h2>
-<table><tr><th>Email</th><td>${c.email}</td></tr><tr><th>Phone</th><td>${c.phone}</td></tr>
-<tr><th>Education</th><td>${c.educationLevel} — ${c.diplomaName}</td></tr>
-<tr><th>Promotion</th><td>${promo ? promo.id + " · " + promo.name : "—"}</td></tr>
-<tr><th>Status</th><td>${c.status}</td></tr></table>
+<h2>${L.personalInfos}</h2>
+<table><tr><th>${L.email}</th><td>${c.email}</td></tr><tr><th>${L.phone}</th><td>${c.phone}</td></tr>
+<tr><th>${L.education}</th><td>${c.educationLevel} — ${c.diplomaName}</td></tr>
+<tr><th>${L.promotion}</th><td>${promo ? promo.id + " · " + promo.name : "—"}</td></tr>
+<tr><th>${L.status}</th><td>${c.status}</td></tr></table>
 
-<!-- Modules -->
-<h2>Modules (/20)</h2>
-<table><tr><th>Module</th><th>Score</th></tr>
+<h2>${L.modulesSection}</h2>
+<table><tr><th>${L.module}</th><th>${L.score}</th></tr>
 ${c.modules.map((m) => `<tr><td>${m.name}</td><td>${(m.score || 0).toFixed(2)}</td></tr>`).join("")}
-<tr><td><strong>Average</strong></td><td><strong>${testsAvg(c.modules).toFixed(2)}</strong></td></tr></table>
+<tr><td><strong>${L.average}</strong></td><td><strong>${testsAvg(c.modules).toFixed(2)}</strong></td></tr></table>
 
-<!-- Work Skills -->
-<h2>Work Skills (/5)</h2>
-<table><tr><th>Skill</th><th>Score</th></tr>
-${workRows(c).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
+<h2>${L.workSkillsSection}</h2>
+<table><tr><th>${L.skill}</th><th>${L.score}</th></tr>
+${workRows(c, L.average).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
 
-<!-- Discipline -->
-<h2>Discipline (/5)</h2>
-<table><tr><th>Skill</th><th>Score</th></tr>
-${disciplineRows(c).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
+<h2>${L.disciplineSection}</h2>
+<table><tr><th>${L.skill}</th><th>${L.score}</th></tr>
+${disciplineRows(c, L.average).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
 
-<p>Recommendation: <strong>${avg >= 10 ? "PASS" : "FAIL"}</strong></p></body></html>`;
+<p>${L.htmlRecommendation} <strong>${avg >= 10 ? L.pass : L.fail}</strong></p></body></html>`;
   downloadFile(html, `${c.firstName}_${c.lastName}_report.html`, "text/html");
 };
 
 
-export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
+export const exportPromotionPDF = (p: Promotion, cands: Candidate[], opts?: ExportOptions) => {
+  const locale = resolveExportLocale(opts);
+  const L = getExportLabels(locale);
   const doc = new jsPDF({ orientation: "landscape" });
   doc.setFontSize(20);
   doc.setTextColor(0, 102, 204);
-  doc.text("CareerHub - Promotion Report", 14, 20);
+  doc.text(pdfSafeText(L.promotionReportTitle), 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(`Generated ${formatDate(new Date().toISOString())}`, 14, 26);
+  doc.text(pdfSafeText(L.generated(formatDate(new Date().toISOString()))), 14, 26);
   doc.setFontSize(14);
   doc.setTextColor(30);
   doc.text(`${p.id} - ${p.name}`, 14, 38);
   doc.setFontSize(10);
-  doc.text(`Period: ${formatDate(p.startDate)} to ${formatDate(p.endDate)}`, 14, 45);
+  doc.text(pdfSafeText(L.period(formatDate(p.startDate), formatDate(p.endDate))), 14, 45);
 
   const visibleCandidates = cands.filter((c) => c.status !== "Dismissed" && c.status !== "Terminated");
 
   autoTable(doc, {
     startY: 52,
-    head: [["KPI", "Value"]],
+    head: [[pdfSafeText(L.kpi), pdfSafeText(L.value)]],
     body: [
-      ["Total Candidates", visibleCandidates.length.toString()],
-      ["Pass Rate", `${passRate(visibleCandidates)}%`],
-      ["Turnover Rate", `${turnoverRate(visibleCandidates)}%`],
+      [pdfSafeText(L.totalCandidates), visibleCandidates.length.toString()],
+      [pdfSafeText(L.passRate), `${passRate(visibleCandidates)}%`],
+      [pdfSafeText(L.turnoverRate), `${turnoverRate(visibleCandidates)}%`],
     ],
     headStyles: { fillColor: [0, 102, 204] },
   });
@@ -334,23 +344,16 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
       .sort((a, b) => overallAverage(b) - overallAverage(a) || `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)),
   }));
 
-  const categoryLightRgb = (cat: Category): [number, number, number] => {
-    if (cat === 'Excellent') return [209, 250, 229];
-    if (cat === 'Good')      return [219, 234, 254];
-    if (cat === 'Passable')  return [254, 243, 199];
-    return [254, 226, 226]; // Critical
-  };
-
   const bodyRows: any[] = [];
   categoryGroups.forEach(group => {
     if (group.items.length === 0) return;
     const lightRgb = categoryLightRgb(group.category);
     const darkRgb  = categoryRgb(group.category);
     group.items.forEach((c, index) => {
-      const rawRow = promotionCandidateRow(c, rankMap.get(c.id) ?? 0);
+      const rawRow = promotionCandidateRow(c, rankMap.get(c.id) ?? 0, locale);
       if (index === 0) {
         rawRow[0] = {
-          content: group.category,
+          content: categoryLabel(group.category, locale),
           rowSpan: group.items.length,
           styles: { fillColor: darkRgb || undefined, textColor: 255, fontStyle: 'bold', valign: 'middle', halign: 'center' }
         } as any;
@@ -369,17 +372,14 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
 
   let y = (doc as any).lastAutoTable.finalY + 8;
   const groupHead = [
-    { content: 'Category', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-    { content: 'Name', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-    { content: 'Discipline', colSpan: 4, styles: { halign: 'center' } },
-    { content: 'Work Skills', colSpan: 6, styles: { halign: 'center' } },
-    { content: 'Avg /5', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
-    { content: 'Classement', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+    { content: pdfSafeText(L.category), rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+    { content: pdfSafeText(L.name), rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+    { content: pdfSafeText(L.discipline), colSpan: 4, styles: { halign: 'center' } },
+    { content: pdfSafeText(L.workSkills), colSpan: 6, styles: { halign: 'center' } },
+    { content: pdfSafeText(L.avgOutOf5), rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+    { content: pdfSafeText(L.ranking), rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
   ];
-  const subHead = [
-    'Discipline', 'Motivation', 'Communication', 'Listening',
-    'Initiative', 'Analysis', 'Organization', 'Intellectual', 'Pace', 'Speed',
-  ];
+  const subHead = [...PROMOTION_SKILL_COLUMNS];
 
   autoTable(doc, {
     startY: y,
@@ -399,16 +399,17 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
   doc.setFontSize(11);
   doc.setTextColor(30);
   doc.setFont("helvetica", "bold");
-  doc.text('Color Legend:', 14, legendY);
+  doc.text(pdfSafeText(L.colorLegend), 14, legendY);
   doc.setFont("helvetica", "normal");
   legendY += 6;
   const legendDefs = [
-    { cat: 'Excellent', label: 'Overall average >= 4.5 / 5' },
-    { cat: 'Good',      label: 'Overall average >= 3.5 / 5' },
-    { cat: 'Passable',  label: 'Overall average >= 2.5 / 5' },
-    { cat: 'Critical',  label: 'Overall average < 2.5 / 5' },
+    { cat: 'Excellent' as Category, label: L.legendExcellent },
+    { cat: 'Good' as Category, label: L.legendGood },
+    { cat: 'Passable' as Category, label: L.legendPassable },
+    { cat: 'Critical' as Category, label: L.legendCritical },
   ];
   legendDefs.forEach(({ cat, label }) => {
+    const safeLabel = pdfSafeText(label);
     const darkRgb = categoryRgb(cat as Category);
     const lightRgb = categoryLightRgb(cat as Category);
     if (darkRgb && lightRgb) {
@@ -423,11 +424,11 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
       doc.setTextColor(30);
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text(cat, 23, legendY + 1);
+      doc.text(pdfSafeText(categoryLabel(cat, locale)), 23, legendY + 1);
       
       doc.setFont("helvetica", "normal");
       doc.setTextColor(80);
-      doc.text(`- ${label}`, 42, legendY + 1);
+      doc.text(`- ${safeLabel}`, 42, legendY + 1);
     }
     legendY += 9;
   });
@@ -435,7 +436,9 @@ export const exportPromotionPDF = (p: Promotion, cands: Candidate[]) => {
   doc.save(`${p.id}_promotion_report.pdf`);
 };
 
-export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
+export const exportPromotionExcel = (p: Promotion, cands: Candidate[], opts?: ExportOptions) => {
+  const locale = resolveExportLocale(opts);
+  const L = getExportLabels(locale);
   const wb = XLSX.utils.book_new();
   const visibleCandidates = cands.filter((c) => c.status !== "Dismissed" && c.status !== "Terminated");
   const rankMap = buildPromotionRankMap(visibleCandidates);
@@ -448,31 +451,30 @@ export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
   const allItems = categoryGroups.flatMap(g => g.items);
 
   const rows: any[][] = [
-    ["CareerHub Promotion Report"],
+    [L.promotionReportTitle],
     [],
-    ["Promotion ID", p.id],
-    ["Name", p.name],
-    ["Start Date", formatDate(p.startDate)],
-    ["End Date", formatDate(p.endDate)],
-    ["Total Candidates", visibleCandidates.length],
-    ["Pass Rate", `${passRate(visibleCandidates)}%`],
-    ["Turnover Rate", `${turnoverRate(visibleCandidates)}%`],
+    [L.promotionId, p.id],
+    [L.name, p.name],
+    [L.startDate, formatDate(p.startDate)],
+    [L.endDate, formatDate(p.endDate)],
+    [L.totalCandidates, visibleCandidates.length],
+    [L.passRate, `${passRate(visibleCandidates)}%`],
+    [L.turnoverRate, `${turnoverRate(visibleCandidates)}%`],
     [],
   ];
 
   const groupHeaderRow = [
-    '', '', 'Discipline', '', '', '', 'Work Skills', '', '', '', '', '', '', ''
+    '', '', L.discipline, '', '', '', L.workSkills, '', '', '', '', '', '', ''
   ];
   const headerRow = [
-    "Category", "Name",
-    "Discipline", "Motivation", "Communication", "Listening",
-    "Initiative", "Analysis", "Organisation", "Intellectual", "Pace", "Speed",
-    "Avg /5", "Classement",
+    L.category, L.name,
+    ...PROMOTION_SKILL_COLUMNS,
+    L.avgOutOf5, L.ranking,
   ];
 
   rows.push(groupHeaderRow);
   rows.push(headerRow);
-  allItems.forEach((c) => rows.push(promotionCandidateRow(c, rankMap.get(c.id) ?? 0)));
+  allItems.forEach((c) => rows.push(promotionCandidateRow(c, rankMap.get(c.id) ?? 0, locale)));
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
 
@@ -526,20 +528,12 @@ export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
     if (ws[ref2]) ws[ref2].s = headerStyle;
   }
 
-  // Light hex fills per category
-  const lightHex: Record<string, string> = {
-    Excellent: 'D1FAE5',
-    Good:      'DBEAFE',
-    Passable:  'FEF3C7',
-    Critical:  'FEE2E2',
-  };
-
   let currentRow = 12;
   categoryGroups.forEach((group) => {
     if (group.items.length === 0) return;
     const category = group.category;
     const darkHex = categoryHex(category).slice(1).toUpperCase();
-    const rowLight = lightHex[category] ?? 'F8FAFC';
+    const rowLight = categoryLightHex(category);
     group.items.forEach(() => {
       for (let col = 0; col < headerRow.length; col++) {
         const ref = XLSX.utils.encode_cell({ c: col, r: currentRow });
@@ -566,13 +560,16 @@ export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
 
   // Legend rows
   const legendStartRow = currentRow + 1;
-  ws[XLSX.utils.encode_cell({ c: 0, r: legendStartRow })] = { v: 'Color Legend', t: 's', s: { font: { bold: true, sz: 11 } } };
-  const legendDefs = [
-    { cat: 'Excellent', label: 'Excellent — Avg ≥ 4.5 / 5', hex: '10B981', light: 'D1FAE5' },
-    { cat: 'Good',      label: 'Good      — Avg ≥ 3.5 / 5', hex: '3B82F6', light: 'DBEAFE' },
-    { cat: 'Passable',  label: 'Passable  — Avg ≥ 2.5 / 5', hex: 'F59E0B', light: 'FEF3C7' },
-    { cat: 'Critical',  label: 'Critical  — Avg < 2.5 / 5',  hex: 'EF4444', light: 'FEE2E2' },
-  ];
+  ws[XLSX.utils.encode_cell({ c: 0, r: legendStartRow })] = { v: L.colorLegend.replace(':', ''), t: 's', s: { font: { bold: true, sz: 11 } } };
+  const legendDefs = categoryOrder.map((cat) => ({
+    cat,
+    label: cat === "Excellent" ? L.legendExcellentShort
+      : cat === "Good" ? L.legendGoodShort
+      : cat === "Passable" ? L.legendPassableShort
+      : L.legendCriticalShort,
+    hex: categoryHex(cat).slice(1).toUpperCase(),
+    light: categoryLightHex(cat),
+  }));
   legendDefs.forEach(({ label, hex, light }, i) => {
     const r = legendStartRow + 1 + i;
     const swatch = XLSX.utils.encode_cell({ c: 0, r });
@@ -597,7 +594,9 @@ export const exportPromotionExcel = (p: Promotion, cands: Candidate[]) => {
   XLSX.writeFile(wb, `${p.id}_promotion_report.xlsx`);
 };
 
-export const exportPromotionHTML = (p: Promotion, cands: Candidate[]) => {
+export const exportPromotionHTML = (p: Promotion, cands: Candidate[], opts?: ExportOptions) => {
+  const locale = resolveExportLocale(opts);
+  const L = getExportLabels(locale);
   const visibleCandidates = cands.filter((c) => c.status !== "Dismissed" && c.status !== "Terminated");
   const rankMap = buildPromotionRankMap(visibleCandidates);
   const categoryGroups = categoryOrder.map((category) => ({
@@ -607,27 +606,19 @@ export const exportPromotionHTML = (p: Promotion, cands: Candidate[]) => {
       .sort((a, b) => overallAverage(b) - overallAverage(a) || `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)),
   }));
 
-  // Light bg color per category
-  const catLightBg: Record<string, string> = {
-    Excellent: '#D1FAE5',
-    Good:      '#DBEAFE',
-    Passable:  '#FEF3C7',
-    Critical:  '#FEE2E2',
-  };
-
   let htmlRows = "";
   categoryGroups.forEach(group => {
     if (group.items.length === 0) return;
     const cat = group.category;
-    const rowBg = catLightBg[cat] ?? '#F8FAFC';
+    const rowBgColor = `#${categoryLightHex(cat)}`;
     group.items.forEach((c, index) => {
       const rank = rankMap.get(c.id) ?? 0;
       const avg = overallAverage(c).toFixed(2);
       const catCell = index === 0 
-        ? `<td rowspan="${group.items.length}" class="category-td category-${cat}">${cat}</td>`
+        ? `<td rowspan="${group.items.length}" class="category-td category-${cat}">${categoryLabel(cat, locale)}</td>`
         : "";
       
-      htmlRows += `<tr style="background:${rowBg}">
+      htmlRows += `<tr style="background:${rowBgColor}">
         ${catCell}
         <td>${c.firstName} ${c.lastName}</td>
         <td>${c.skills.discipline.discipline.toFixed(1)}</td>
@@ -654,10 +645,10 @@ table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
 th,td{padding:8px 10px;border:1px solid #E2E8F0;text-align:left;vertical-align:middle}
 th{background:#F8FAFC}
 .category-td{color:#FFF;font-weight:bold;text-align:center;}
-.category-Excellent{background:#10B981}
-.category-Good{background:#3B82F6}
-.category-Passable{background:#F59E0B}
-.category-Critical{background:#EF4444}
+.category-Excellent{background:${categoryHex("Excellent")}}
+.category-Good{background:${categoryHex("Good")}}
+.category-Passable{background:${categoryHex("Passable")}}
+.category-Critical{background:${categoryHex("Critical")}}
 .kpi{display:inline-block;padding:14px 20px;background:#F8FAFC;border-radius:8px;margin:6px;border:1px solid #E2E8F0}
 .kpi b{display:block;font-size:24px;color:#0066CC}
 .legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px;padding:16px;background:#F8FAFC;border-radius:10px;border:1px solid #E2E8F0}
@@ -667,55 +658,34 @@ th{background:#F8FAFC}
 .legend-label b{display:block;font-size:12px}
 .legend-label span{font-size:11px;color:#64748B}
 </style></head><body>
-<h1>CareerHub — Promotion Report</h1><h2>${p.id} · ${p.name}</h2>
+<h1>${L.htmlPromotionTitle}</h1><h2>${p.id} · ${p.name}</h2>
 <p>${formatDate(p.startDate)} → ${formatDate(p.endDate)}</p>
-<div><div class="kpi"><b>${visibleCandidates.length}</b>Candidates</div>
-<div class="kpi"><b>${passRate(visibleCandidates)}%</b>Pass Rate</div>
-<div class="kpi"><b>${turnoverRate(visibleCandidates)}%</b>Turnover</div></div>
+<div><div class="kpi"><b>${visibleCandidates.length}</b>${L.candidates}</div>
+<div class="kpi"><b>${passRate(visibleCandidates)}%</b>${L.passRate}</div>
+<div class="kpi"><b>${turnoverRate(visibleCandidates)}%</b>${L.turnover}</div></div>
 
 <div class="table-wrap"><table><thead>
 <tr>
-  <th rowspan="2">Category</th>
-  <th rowspan="2">Name</th>
-  <th colspan="4" style="text-align:center">Discipline</th>
-  <th colspan="6" style="text-align:center">Work Skills</th>
-  <th rowspan="2">Avg /5</th>
-  <th rowspan="2">Classement</th>
+  <th rowspan="2">${L.category}</th>
+  <th rowspan="2">${L.name}</th>
+  <th colspan="4" style="text-align:center">${L.discipline}</th>
+  <th colspan="6" style="text-align:center">${L.workSkills}</th>
+  <th rowspan="2">${L.avgOutOf5}</th>
+  <th rowspan="2">${L.ranking}</th>
 </tr>
 <tr>
-  <th>Discipline</th>
-  <th>Motivation</th>
-  <th>Communication</th>
-  <th>Listening</th>
-  <th>Initiative</th>
-  <th>Analysis</th>
-  <th>Organization</th>
-  <th>Intellectual</th>
-  <th>Pace</th>
-  <th>Speed</th>
+  ${PROMOTION_SKILL_COLUMNS.map((col) => `<th>${col}</th>`).join("")}
 </tr>
 </thead><tbody>
   ${htmlRows}
 </tbody></table></div>
 
 <div class="legend">
-  <h3>Color Legend</h3>
-  <div class="legend-item">
-    <div class="legend-swatch" style="background:#10B981"></div>
-    <div class="legend-label"><b>Excellent</b><span>Overall average ≥ 4.5 / 5</span></div>
-  </div>
-  <div class="legend-item">
-    <div class="legend-swatch" style="background:#3B82F6"></div>
-    <div class="legend-label"><b>Good</b><span>Overall average ≥ 3.5 / 5</span></div>
-  </div>
-  <div class="legend-item">
-    <div class="legend-swatch" style="background:#F59E0B"></div>
-    <div class="legend-label"><b>Passable</b><span>Overall average ≥ 2.5 / 5</span></div>
-  </div>
-  <div class="legend-item">
-    <div class="legend-swatch" style="background:#EF4444"></div>
-    <div class="legend-label"><b>Critical</b><span>Overall average &lt; 2.5 / 5</span></div>
-  </div>
+  <h3>${L.colorLegend.replace(":", "")}</h3>
+  ${categoryOrder.map((cat) => `<div class="legend-item">
+    <div class="legend-swatch" style="background:${categoryHex(cat)}"></div>
+    <div class="legend-label"><b>${categoryLabel(cat, locale)}</b><span>${cat === "Excellent" ? L.legendExcellent : cat === "Good" ? L.legendGood : cat === "Passable" ? L.legendPassable : L.legendCritical}</span></div>
+  </div>`).join("")}
 </div>
 </body></html>`;
   downloadFile(html, `${p.id}_report.html`, "text/html");

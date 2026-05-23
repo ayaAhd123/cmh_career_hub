@@ -103,11 +103,19 @@ export const useAuth = create<AuthState>()(
         }
       },
     }),
-    { name: 'careerhub-auth' },
+    {
+      name: "careerhub-auth",
+      partialize: (state) => ({
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+        profile: state.profile,
+      }),
+    },
   ),
 );
 
 (async () => {
+  if (typeof window === "undefined") return;
   try {
     const store = (useAuth as any).getState();
     const token = store.token;

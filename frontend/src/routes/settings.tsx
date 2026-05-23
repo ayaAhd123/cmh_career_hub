@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { LogOut, User, Lock, Database, Building2 } from "lucide-react";
+import { LogOut, User, Lock, Database, Building2, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/lib/theme";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,8 @@ function SettingsPage() {
   const changePassword = useAuth((s) => s.changePassword);
   const logout = useAuth((s) => s.logout);
   const nav = useNavigate();
+  const theme = useTheme((s) => s.theme);
+  const setTheme = useTheme((s) => s.setTheme);
 
   const reset = useStore((s) => s.resetSeed);
   const restore = useStore((s) => s.restoreCandidate);
@@ -102,6 +105,28 @@ function SettingsPage() {
             </div>
           </div>
           <Button onClick={saveProfile}>Save profile</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Sun className="h-4 w-4" /> Appearance</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={theme === "light" ? "default" : "outline"}
+            onClick={() => setTheme("light")}
+          >
+            <Sun className="mr-2 h-4 w-4" /> Light
+          </Button>
+          <Button
+            type="button"
+            variant={theme === "dark" ? "default" : "outline"}
+            onClick={() => setTheme("dark")}
+          >
+            <Moon className="mr-2 h-4 w-4" /> Dark
+          </Button>
         </CardContent>
       </Card>
 

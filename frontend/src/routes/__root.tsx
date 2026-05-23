@@ -16,9 +16,13 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { seedSampleData } from "@/lib/seed";
 import { useAuth } from "@/lib/auth";
+import { useAuthHydrated } from "@/lib/auth-hydration";
 import { ProfileMenu } from "@/components/profile-menu";
 import { AiChatBubble } from "@/components/ai-chat-bubble";
 import { RemindersPopover } from "@/components/reminders-popover";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { themeInitScript } from "@/lib/theme";
 
 function NotFoundComponent() {
   return (
@@ -90,8 +94,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <HeadContent />
       </head>
       <body>
@@ -105,8 +110,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const isBrowser = typeof window !== "undefined";
+  const hydrated = useAuthHydrated();
   const isAuth = useAuth((s) => s.isAuthenticated);
+  const token = useAuth((s) => s.token);
   const nav = useNavigate();
+  const hasSession = isAuth || Boolean(token);
 
   useEffect(() => {
     if (!isAuth) return;
@@ -114,51 +123,65 @@ function RootComponent() {
   }, [isAuth]);
 
   useEffect(() => {
-    if (!isAuth && path !== "/login") {
-      nav({ to: "/login" });
+    if (!isBrowser || !hydrated) return;
+    if (!hasSession && path !== "/login") {
+      nav({ to: "/login", replace: true });
     }
-  }, [isAuth, path, nav]);
+  }, [isBrowser, hydrated, hasSession, path, nav]);
+
+  const appShell = (
+    <ThemeProvider>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-background">
+        <AppSidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-14 border-b bg-card flex items-center px-4 gap-3 sticky top-0 z-30">
+            <SidebarTrigger />
+              <div className="flex-1" />
+              <ThemeToggle />
+              <RemindersPopover />
+              <ProfileMenu />
+          </header>
+          <main className="flex-1 p-6 pb-24 max-w-[1600px] w-full mx-auto">
+            <Outlet />
+          </main>
+        </div>
+      </div>
+      <AiChatBubble />
+      <Toaster richColors position="top-right" />
+    </SidebarProvider>
+    </ThemeProvider>
+  );
 
   // Login page: render alone (no sidebar/header)
   if (path === "/login") {
     return (
       <QueryClientProvider client={queryClient}>
-        <Outlet />
-        <Toaster richColors position="top-right" />
+        <ThemeProvider>
+          <div className="absolute top-4 right-4 z-50">
+            <ThemeToggle />
+          </div>
+          <Outlet />
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
       </QueryClientProvider>
     );
   }
 
-  if (!isAuth) {
+  // Keep the same tree on SSR and on the client until auth is rehydrated (avoids hydration crash).
+  if (!isBrowser || !hydrated || hasSession) {
     return (
       <QueryClientProvider client={queryClient}>
-        <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
-          Redirecting to login…
-        </div>
+        {appShell}
       </QueryClientProvider>
     );
   }
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SidebarProvider>
-        <div className="flex min-h-screen w-full bg-background">
-          <AppSidebar />
-          <div className="flex-1 flex flex-col min-w-0">
-            <header className="h-14 border-b bg-card flex items-center px-4 gap-3 sticky top-0 z-30">
-              <SidebarTrigger />
-              <div className="flex-1" />
-              <RemindersPopover />
-              <ProfileMenu />
-            </header>
-            <main className="flex-1 p-6 pb-24 max-w-[1600px] w-full mx-auto">
-              <Outlet />
-            </main>
-          </div>
-        </div>
-        <AiChatBubble />
-        <Toaster richColors position="top-right" />
-      </SidebarProvider>
+      <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+        Redirecting to login…
+      </div>
     </QueryClientProvider>
   );
 }

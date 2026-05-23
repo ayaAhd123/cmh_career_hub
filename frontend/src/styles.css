@@ -77,8 +77,8 @@
   --info: oklch(0.62 0.16 250);
   --info-foreground: oklch(0.99 0 0);
 
-  --excellent: oklch(0.7 0.16 165);
-  --good: oklch(0.62 0.16 250);
+  --excellent: oklch(0.52 0.14 165);
+  --good: oklch(0.82 0.12 155);
   --passable: oklch(0.78 0.15 75);
   --critical: oklch(0.62 0.22 25);
 
