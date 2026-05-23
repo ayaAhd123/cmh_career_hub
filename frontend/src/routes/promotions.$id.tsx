@@ -23,6 +23,7 @@ import { useAuth } from "@/lib/auth";
 import type { EducationLevel, Gender } from "@/lib/types";
 import { fetchPromotionStats, fetchPromotionExportCandidates, type PromotionStats } from "@/lib/promotion-api";
 import { formatGenderDisplay } from "@/lib/export-i18n";
+import { dispatchRemindersRefresh } from "@/lib/reminders-api";
 import {
   ArrowLeft,
   Users,
@@ -348,6 +349,7 @@ function PromotionDetail() {
 
   const refreshData = useCallback(async () => {
     await Promise.all([loadStats(), loadCandidates()]);
+    dispatchRemindersRefresh();
   }, [loadStats, loadCandidates]);
 
   const handlePromotionExport = useCallback(async (format: "pdf" | "excel" | "html") => {

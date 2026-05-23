@@ -6,6 +6,7 @@ import {
   getActiveReminderContext,
   type ActiveReminderContext,
 } from "@/lib/reminder-state";
+import { markReminderReadApi, dispatchRemindersRefresh } from "@/lib/reminders-api";
 
 export function ReminderContextBanner() {
   const [context, setContext] = useState<ActiveReminderContext | null>(null);
@@ -17,8 +18,10 @@ export function ReminderContextBanner() {
   if (!context) return null;
 
   const dismiss = () => {
+    void markReminderReadApi(context.id).catch(console.error);
     clearActiveReminderContext();
     setContext(null);
+    dispatchRemindersRefresh();
   };
 
   return (

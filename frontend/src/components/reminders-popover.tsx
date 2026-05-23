@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Bell,
@@ -9,6 +9,7 @@ import {
   TrendingDown,
   MoreVertical,
   Check,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -22,24 +23,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   fetchReminders,
+  markReminderReadApi,
+  markAllRemindersReadApi,
+  dismissReminderApi,
+  snoozeReminderApi,
   REMINDER_TYPE_LABELS,
+  REMINDERS_REFRESH_EVENT,
   type Reminder,
   type ReminderIcon,
 } from "@/lib/reminders-api";
-import {
-  countUnread,
-  dismissReminder,
-  filterVisibleReminders,
-  isReminderRead,
-  markAllRemindersRead,
-  markReminderRead,
-  setActiveReminderContext,
-} from "@/lib/reminder-state";
+import { setActiveReminderContext } from "@/lib/reminder-state";
 import { useAuthHydrated } from "@/lib/auth-hydration";
 import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
-/** ~3 reminder cards visible, rest scrolls */
 const REMINDER_LIST_MAX_HEIGHT = "17.75rem";
+const POLL_MS = 5 * 60 * 1000;
 
 const ICONS: Record<ReminderIcon, typeof Bell> = {
   calendar: CalendarClock,
@@ -52,19 +51,20 @@ const ICONS: Record<ReminderIcon, typeof Bell> = {
 
 function ReminderItem({
   reminder,
-  isRead,
   onOpen,
   onDismiss,
   onMarkRead,
+  onSnooze,
 }: {
   reminder: Reminder;
-  isRead: boolean;
   onOpen: (reminder: Reminder) => void;
   onDismiss: (reminderId: string) => void;
   onMarkRead: (reminderId: string) => void;
+  onSnooze: (reminderId: string) => void;
 }) {
   const Icon = ICONS[reminder.icon] ?? Bell;
   const typeLabel = REMINDER_TYPE_LABELS[reminder.type] ?? reminder.type;
+  const isRead = reminder.isRead === true;
 
   return (
     <div
@@ -147,7 +147,7 @@ function ReminderItem({
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent align="end" className="w-44">
             {!isRead ? (
               <DropdownMenuItem
                 onSelect={(e) => {
@@ -158,6 +158,15 @@ function ReminderItem({
                 Mark as read
               </DropdownMenuItem>
             ) : null}
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                onSnooze(reminder.id);
+              }}
+            >
+              <Clock className="mr-2 h-3.5 w-3.5" />
+              Snooze 24h
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               onSelect={(e) => {
@@ -178,29 +187,39 @@ export function RemindersPopover() {
   const navigate = useNavigate();
   const hydrated = useAuthHydrated();
   const token = useAuth((s) => s.token);
-  const userKey = useAuth((s) => s.profile?.email ?? "guest");
   const [open, setOpen] = useState(false);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [total, setTotal] = useState(0);
+  const [allCount, setAllCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [readVersion, setReadVersion] = useState(0);
+  const [loadError, setLoadError] = useState(false);
 
   const loadReminders = useCallback(async () => {
     if (!token) {
       setReminders([]);
       setTotal(0);
+      setAllCount(0);
+      setUnreadCount(0);
       return;
     }
 
     setLoading(true);
+    setLoadError(false);
     try {
       const data = await fetchReminders();
       setReminders(data.reminders);
       setTotal(data.total);
+      setAllCount(data.allCount);
+      setUnreadCount(data.unreadCount);
     } catch (err) {
       console.error(err);
       setReminders([]);
       setTotal(0);
+      setAllCount(0);
+      setUnreadCount(0);
+      setLoadError(true);
+      toast.error("Failed to load reminders");
     } finally {
       setLoading(false);
     }
@@ -212,22 +231,36 @@ export function RemindersPopover() {
     }
   }, [open, hydrated, token, loadReminders]);
 
-  const visibleReminders = useMemo(
-    () => filterVisibleReminders(userKey, reminders),
-    [userKey, reminders, readVersion],
-  );
+  useEffect(() => {
+    const onRefresh = () => {
+      void loadReminders();
+    };
+    window.addEventListener(REMINDERS_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(REMINDERS_REFRESH_EVENT, onRefresh);
+  }, [loadReminders]);
 
-  const unreadCount = useMemo(
-    () => countUnread(userKey, visibleReminders.map((r) => r.id)),
-    [userKey, visibleReminders, readVersion],
-  );
+  useEffect(() => {
+    if (!token) return;
+    const timer = setInterval(() => {
+      void loadReminders();
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [token, loadReminders]);
 
-  const bumpReadState = () => setReadVersion((v) => v + 1);
+  const handleOpenReminder = async (reminder: Reminder) => {
+    try {
+      if (!reminder.isRead) {
+        await markReminderReadApi(reminder.id);
+      }
+    } catch (err) {
+      console.error(err);
+    }
 
-  const handleOpenReminder = (reminder: Reminder) => {
-    markReminderRead(userKey, reminder.id);
     setActiveReminderContext(reminder);
-    bumpReadState();
+    setReminders((prev) =>
+      prev.map((r) => (r.id === reminder.id ? { ...r, isRead: true } : r)),
+    );
+    setUnreadCount((prev) => Math.max(0, prev - (reminder.isRead ? 0 : 1)));
     setOpen(false);
 
     const link = reminder.link;
@@ -251,25 +284,64 @@ export function RemindersPopover() {
     });
   };
 
-  const handleMarkAllRead = () => {
-    markAllRemindersRead(
-      userKey,
-      visibleReminders.map((r) => r.id),
-    );
-    bumpReadState();
+  const handleMarkAllRead = async () => {
+    const ids = reminders.filter((r) => !r.isRead).map((r) => r.id);
+    if (ids.length === 0) return;
+    try {
+      await markAllRemindersReadApi(ids);
+      setReminders((prev) => prev.map((r) => ({ ...r, isRead: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to mark reminders as read");
+    }
   };
 
-  const handleMarkRead = (reminderId: string) => {
-    markReminderRead(userKey, reminderId);
-    bumpReadState();
+  const handleMarkRead = async (reminderId: string) => {
+    try {
+      await markReminderReadApi(reminderId);
+      setReminders((prev) =>
+        prev.map((r) => (r.id === reminderId ? { ...r, isRead: true } : r)),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to mark reminder as read");
+    }
   };
 
-  const handleDismiss = (reminderId: string) => {
-    dismissReminder(userKey, reminderId);
-    bumpReadState();
+  const handleDismiss = async (reminderId: string) => {
+    try {
+      await dismissReminderApi(reminderId);
+      setReminders((prev) => prev.filter((r) => r.id !== reminderId));
+      setTotal((prev) => Math.max(0, prev - 1));
+      setUnreadCount((prev) => {
+        const dismissed = reminders.find((r) => r.id === reminderId);
+        return Math.max(0, prev - (dismissed?.isRead ? 0 : 1));
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to remove reminder");
+    }
   };
 
-  const hasVisibleReminders = visibleReminders.length > 0;
+  const handleSnooze = async (reminderId: string) => {
+    try {
+      await snoozeReminderApi(reminderId, 24);
+      setReminders((prev) => prev.filter((r) => r.id !== reminderId));
+      setTotal((prev) => Math.max(0, prev - 1));
+      setUnreadCount((prev) => {
+        const snoozed = reminders.find((r) => r.id === reminderId);
+        return Math.max(0, prev - (snoozed?.isRead ? 0 : 1));
+      });
+      toast.success("Reminder snoozed for 24 hours");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to snooze reminder");
+    }
+  };
+
+  const hasReminders = reminders.length > 0;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -284,9 +356,7 @@ export function RemindersPopover() {
               ? "bg-muted/10 text-foreground"
               : unreadCount > 0
                 ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                : hasVisibleReminders
-                  ? "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                  : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
           )}
           aria-label="Open reminders"
         >
@@ -307,59 +377,67 @@ export function RemindersPopover() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold">Reminders</p>
-              {hasVisibleReminders && !loading ? (
+              {hasReminders && !loading ? (
                 <Button
                   type="button"
                   variant="link"
                   size="sm"
                   className="h-auto shrink-0 px-0 text-xs text-primary"
                   disabled={unreadCount === 0}
-                  onClick={handleMarkAllRead}
+                  onClick={() => void handleMarkAllRead()}
                 >
                   Mark all as read
                 </Button>
               ) : null}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {unreadCount > 0
-                ? `${unreadCount} unread · click to open the related page`
-                : "End dates, headcount, evaluations, and follow-ups"}
+              {loadError
+                ? "Could not load reminders — try again later"
+                : unreadCount > 0
+                  ? `${unreadCount} unread · click to open the related page`
+                  : "End dates, headcount, evaluations, and follow-ups"}
             </p>
           </div>
           <Badge variant="secondary" className="rounded-full px-2 py-1 text-[11px] shrink-0">
-            {loading ? "…" : unreadCount > 0 ? `${unreadCount}/${visibleReminders.length}` : visibleReminders.length}
+            {loading ? "…" : unreadCount > 0 ? `${unreadCount}/${total}` : total}
           </Badge>
         </div>
+
+        {!loading && allCount > total ? (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Showing {total} of {allCount} active reminders
+          </p>
+        ) : null}
 
         <div
           className="mt-4 space-y-2 overflow-y-auto pr-0.5"
           style={{ maxHeight: REMINDER_LIST_MAX_HEIGHT }}
         >
-          {loading && visibleReminders.length === 0 ? (
+          {loading && !hasReminders ? (
             <div className="rounded-lg border border-border/80 bg-muted/30 px-3 py-6 text-center text-sm text-muted-foreground">
               Loading reminders…
             </div>
-          ) : hasVisibleReminders ? (
-            visibleReminders.map((reminder) => (
+          ) : hasReminders ? (
+            reminders.map((reminder) => (
               <ReminderItem
                 key={reminder.id}
                 reminder={reminder}
-                isRead={isReminderRead(userKey, reminder.id)}
-                onOpen={handleOpenReminder}
-                onDismiss={handleDismiss}
-                onMarkRead={handleMarkRead}
+                onOpen={(r) => void handleOpenReminder(r)}
+                onDismiss={(id) => void handleDismiss(id)}
+                onMarkRead={(id) => void handleMarkRead(id)}
+                onSnooze={(id) => void handleSnooze(id)}
               />
             ))
           ) : (
             <div className="rounded-lg border border-border/80 bg-muted/30 px-3 py-6 text-center text-sm text-muted-foreground">
-              {reminders.length > 0 ? "All reminders dismissed." : "No reminders right now."}
+              {loadError ? "Reminders unavailable." : "No reminders right now."}
             </div>
           )}
         </div>
 
-        {!loading && visibleReminders.length > 3 ? (
+        {!loading && reminders.length > 3 ? (
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Scroll for {visibleReminders.length - 3} more
+            Scroll for {reminders.length - 3} more
           </p>
         ) : null}
       </PopoverContent>

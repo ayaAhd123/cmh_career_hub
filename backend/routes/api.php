@@ -26,6 +26,10 @@ Route::prefix('v1')->group(function () {
 
         Route::get('dashboard/stats', [DashboardController::class, 'stats']);
         Route::get('reminders', [RemindersController::class, 'index']);
+        Route::post('reminders/read-all', [RemindersController::class, 'markAllRead']);
+        Route::post('reminders/{reminderId}/read', [RemindersController::class, 'markRead']);
+        Route::post('reminders/{reminderId}/dismiss', [RemindersController::class, 'dismiss']);
+        Route::post('reminders/{reminderId}/snooze', [RemindersController::class, 'snooze']);
 
         Route::get('candidates/export', [CandidateController::class, 'export']);
         Route::put('candidates/{candidate}/skills', [CandidateController::class, 'updateSkills']);

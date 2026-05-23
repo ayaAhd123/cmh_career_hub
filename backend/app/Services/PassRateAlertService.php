@@ -17,8 +17,6 @@ class PassRateAlertService
     /** Minimum candidates before pass-rate alerts apply. */
     private const MIN_CANDIDATES = 3;
 
-    private const CACHE_DAYS = 30;
-
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -61,8 +59,6 @@ class PassRateAlertService
                 promotionId: $promoId,
             );
         }
-
-        Cache::put($this->cacheKey($promoId), $current, now()->addDays(self::CACHE_DAYS));
 
         return $items;
     }
@@ -110,8 +106,6 @@ class PassRateAlertService
             );
         }
 
-        Cache::put($this->cacheKey('global'), $current, now()->addDays(self::CACHE_DAYS));
-
         return $items;
     }
 
@@ -145,6 +139,6 @@ class PassRateAlertService
 
     private function cacheKey(string $scope): string
     {
-        return "careerhub_pass_rate:{$scope}";
+        return app(PassRateBaselineService::class)->cacheKey($scope);
     }
 }

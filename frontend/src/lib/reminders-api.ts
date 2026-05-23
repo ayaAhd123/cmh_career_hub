@@ -36,11 +36,14 @@ export interface Reminder {
   promotionId: string | null;
   icon: ReminderIcon;
   link: ReminderLink;
+  isRead?: boolean;
 }
 
 export interface RemindersResponse {
   reminders: Reminder[];
   total: number;
+  unreadCount: number;
+  allCount: number;
 }
 
 export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
@@ -56,14 +59,23 @@ export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
   low_pass_rate: "Success rate",
 };
 
-export async function fetchReminders(): Promise<RemindersResponse> {
-  const token = useAuth.getState().token;
+export const REMINDERS_REFRESH_EVENT = "careerhub:reminders-refresh";
 
+export function dispatchRemindersRefresh() {
+  window.dispatchEvent(new CustomEvent(REMINDERS_REFRESH_EVENT));
+}
+
+const authHeaders = (): HeadersInit => {
+  const token = useAuth.getState().token;
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
+export async function fetchReminders(): Promise<RemindersResponse> {
   const res = await fetch(apiUrl("/api/v1/reminders"), {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers: authHeaders(),
   });
 
   const data = await res.json();
@@ -72,4 +84,54 @@ export async function fetchReminders(): Promise<RemindersResponse> {
   }
 
   return data;
+}
+
+export async function markReminderReadApi(reminderId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/reminders/${encodeURIComponent(reminderId)}/read`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Failed to mark reminder as read");
+  }
+}
+
+export async function markAllRemindersReadApi(reminderIds: string[]): Promise<void> {
+  const res = await fetch(apiUrl("/api/v1/reminders/read-all"), {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ ids: reminderIds }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Failed to mark all reminders as read");
+  }
+}
+
+export async function dismissReminderApi(reminderId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/reminders/${encodeURIComponent(reminderId)}/dismiss`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Failed to dismiss reminder");
+  }
+}
+
+export async function snoozeReminderApi(reminderId: string, hours = 24): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/reminders/${encodeURIComponent(reminderId)}/snooze`), {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ hours }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Failed to snooze reminder");
+  }
 }

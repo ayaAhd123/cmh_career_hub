@@ -4,23 +4,25 @@ namespace App\Services;
 
 use App\Models\Candidate;
 use App\Models\Promotion;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class RemindersService
 {
-    private const REMINDER_LIMIT = 15;
+    private const REMINDER_LIMIT = 30;
 
     public function __construct(
         private readonly PassRateAlertService $passRateAlerts,
+        private readonly ReminderStateService $reminderStates,
     ) {}
     private const MIN_CANDIDATES = 5;
     private const ENDING_SOON_DAYS = 7;
     private const STARTING_SOON_DAYS = 7;
     private const EXPECTED_SKILL_COUNT = 10;
 
-    /** @return array{reminders: array<int, array<string, mixed>>, total: int} */
-    public function list(): array
+    /** @return array{reminders: array<int, array<string, mixed>>, total: int, unreadCount: int, allCount: int} */
+    public function list(User $user): array
     {
         $now = Carbon::today();
 
@@ -57,11 +59,15 @@ class RemindersService
         usort($items, fn (array $a, array $b) => $a['priority'] <=> $b['priority']
             ?: strcmp($a['timeLabel'], $b['timeLabel']));
 
-        $total = count($items);
+        $allCount = count($items);
+        $limited = array_slice($items, 0, self::REMINDER_LIMIT);
+        $withState = $this->reminderStates->applyUserState($user->id, $limited);
 
         return [
-            'reminders' => array_slice($items, 0, self::REMINDER_LIMIT),
-            'total' => $total,
+            'reminders' => $withState['reminders'],
+            'total' => $withState['total'],
+            'unreadCount' => $withState['unreadCount'],
+            'allCount' => $allCount,
         ];
     }
 

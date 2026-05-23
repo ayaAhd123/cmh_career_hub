@@ -40,6 +40,7 @@ import {
   exportCandidatesApi,
   downloadBlob,
 } from "@/lib/candidate-api";
+import { dispatchRemindersRefresh } from "@/lib/reminders-api";
 import { exportCandidatesExcel } from "@/lib/candidate-export";
 import { formatGenderDisplay, type ExportLocale } from "@/lib/export-i18n";
 import { ReminderContextBanner } from "@/components/reminder-context-banner";
@@ -176,6 +177,7 @@ function AllCandidates() {
   const handleUpdate = async (id: string, data: Parameters<typeof updateCandidateApi>[1]) => {
     await updateCandidateApi(id, data);
     await loadCandidates();
+    dispatchRemindersRefresh();
   };
 
   const handleDelete = async () => {
@@ -186,6 +188,7 @@ function AllCandidates() {
       setDeleteCandidate(null);
       setDeleteConfirmText("");
       await loadCandidates();
+      dispatchRemindersRefresh();
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to delete candidate");

@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Candidate;
+use App\Models\Promotion;
 use App\Services\CandidateExportService;
 use App\Services\CandidateFormatter;
 use App\Services\CandidateQueryService;
 use App\Services\CandidateWriteService;
+use App\Services\PassRateBaselineService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -21,6 +23,7 @@ class CandidateController extends Controller
         private readonly CandidateExportService $exportService,
         private readonly CandidateFormatter $formatter,
         private readonly CandidateWriteService $writeService,
+        private readonly PassRateBaselineService $passRateBaselines,
     ) {}
 
     public function index(Request $request)
@@ -203,7 +206,21 @@ class CandidateController extends Controller
         ]);
 
         $this->writeService->logArchived($candidate);
+        $promotionId = $candidate->promotion_id;
         $candidate->delete();
+
+        if ($promotionId) {
+            $promotion = Promotion::query()->find($promotionId);
+            if ($promotion) {
+                $this->passRateBaselines->refreshPromotion($promotion);
+            }
+        }
+
+        $promotions = Promotion::query()
+            ->where('status', '!=', 'Archived')
+            ->whereNull('deleted_at')
+            ->get();
+        $this->passRateBaselines->refreshGlobal($promotions);
 
         return response()->noContent();
     }

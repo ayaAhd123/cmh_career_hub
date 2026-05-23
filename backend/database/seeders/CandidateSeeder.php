@@ -7,9 +7,8 @@ use App\Models\CandidateSkill;
 use App\Models\Module;
 use App\Models\ModuleGrade;
 use App\Models\Promotion;
+use App\Services\PassRateBaselineService;
 use Illuminate\Database\Seeder;
-use App\Services\CandidateScoreService;
-use Illuminate\Support\Facades\Cache;
 
 class CandidateSeeder extends Seeder
 {
@@ -115,34 +114,30 @@ class CandidateSeeder extends Seeder
             }
         }
 
-        $this->command?->info("CandidateSeeder: seeded {$created} candidates across {$promotions->count()} promotions.");
+        $this->seedUnassignedCandidates();
+        app(PassRateBaselineService::class)->primeDemoBaselines($promotions);
 
-        $this->primePassRateBaselines($promotions);
+        $this->command?->info("CandidateSeeder: seeded {$created} candidates across {$promotions->count()} promotions.");
     }
 
-    private function primePassRateBaselines($promotions): void
+    private function seedUnassignedCandidates(): void
     {
-        $all = collect();
-
-        foreach ($promotions as $promotion) {
-            $eligible = $promotion->candidates()
-                ->where('state', '!=', 'Archived')
-                ->with(['skills', 'moduleGrades'])
-                ->get();
-            if ($eligible->count() < 3) {
-                continue;
-            }
-
-            $current = CandidateScoreService::passRate($eligible);
-            $baseline = min(95, $current + 12);
-            Cache::put("careerhub_pass_rate:{$promotion->promo_code}", $baseline, now()->addDays(30));
-            $all = $all->merge($eligible);
-        }
-
-        if ($all->count() >= 3) {
-            $globalCurrent = CandidateScoreService::passRate($all);
-            Cache::put('careerhub_pass_rate:global', min(95, $globalCurrent + 10), now()->addDays(30));
-        }
+        Candidate::updateOrCreate(
+            ['email' => 'unassigned.demo@cmh.ma'],
+            [
+                'promotion_id' => null,
+                'first_name' => 'Sara',
+                'last_name' => 'Unassigned',
+                'phone' => '+212 600000099',
+                'recruitment_date' => now()->subDays(3)->toDateString(),
+                'age' => 24,
+                'gender' => 'Femme',
+                'education_level' => 'Bac+3',
+                'diploma_specialty' => 'Marketing Digital',
+                'diploma_average' => 13.5,
+                'state' => 'Active',
+            ],
+        );
     }
 
     /** @return list<array<string, mixed>> */
