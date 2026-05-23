@@ -43,6 +43,7 @@ import {
 import { TableRowSkeleton, EmptyStateMessage, ErrorStateMessage } from "@/components/loading-states";
 import type { Candidate, CandidateStatus, EducationLevel, Gender, Category } from "@/lib/types";
 import { toast } from "sonner";
+import { formatGenderDisplay } from "@/lib/export-i18n";
 
 const STATUS_OPTIONS: CandidateStatus[] = ["Active", "Graduated", "Dismissed", "Terminated"];
 const GENDER_OPTIONS: Gender[] = ["Homme", "Femme"];
@@ -270,7 +271,7 @@ function Graduates() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2 bg-background">
-              {genderFilter === "All" ? "Gender" : genderFilter}
+              {genderFilter === "All" ? "Gender" : formatGenderDisplay(genderFilter)}
               <ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
@@ -278,7 +279,9 @@ function Graduates() {
             <DropdownMenuRadioGroup value={genderFilter} onValueChange={setGenderFilter}>
               <DropdownMenuRadioItem value="All">All Genders</DropdownMenuRadioItem>
               {GENDER_OPTIONS.map((gender) => (
-                <DropdownMenuRadioItem key={gender} value={gender}>{gender}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem key={gender} value={gender}>
+                  {formatGenderDisplay(gender)}
+                </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>

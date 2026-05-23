@@ -124,7 +124,7 @@ function ArchivedPromotions() {
 
   const handleStartChange = (val: string) => {
     if (val && customEnd && val > customEnd) {
-      toast.error("La date de début doit être avant la date de fin");
+      toast.error("Start date must be before end date");
       return;
     }
     setCustomStart(val);
@@ -133,7 +133,7 @@ function ArchivedPromotions() {
 
   const handleEndChange = (val: string) => {
     if (val && customStart && customStart > val) {
-      toast.error("La date de fin doit être après la date de début");
+      toast.error("End date must be after start date");
       return;
     }
     setCustomEnd(val);

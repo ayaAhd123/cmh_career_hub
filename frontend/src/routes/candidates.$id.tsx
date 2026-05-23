@@ -11,6 +11,7 @@ import {
   updateCandidateStatusApi,
 } from "@/lib/candidate-api";
 import type { Candidate, ModuleScore, Skills } from "@/lib/types";
+import { formatGenderDisplay } from "@/lib/export-i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,6 +150,7 @@ function CandidateDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const skillsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modulesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [editForm, setEditForm] = useState({
     firstName: "",
     lastName: "",
@@ -436,8 +438,8 @@ function CandidateDetail() {
                       <Select value={editForm.gender} onValueChange={(v) => setEditForm({ ...editForm, gender: v })}>
                         <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Homme">Homme</SelectItem>
-                          <SelectItem value="Femme">Femme</SelectItem>
+                          <SelectItem value="Homme">{formatGenderDisplay("Homme")}</SelectItem>
+                          <SelectItem value="Femme">{formatGenderDisplay("Femme")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -465,10 +467,12 @@ function CandidateDetail() {
                       <Input type="number" min={0} max={20} step={0.1} value={editForm.diplomaAverage} onChange={(e) => setEditForm({ ...editForm, diplomaAverage: e.target.value === "" ? "" : parseFloat(e.target.value) || "" })} />
                     </div>
                     <div className="sm:col-span-2">
-                      <Label>Photo</Label>
-                      <Input
+                      <Label>Photo (optional)</Label>
+                      <input
+                        ref={photoInputRef}
                         type="file"
                         accept="image/*"
+                        className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0] ?? null;
                           setEditForm({
@@ -478,6 +482,14 @@ function CandidateDetail() {
                           });
                         }}
                       />
+                      <div className="mt-1 flex items-center gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => photoInputRef.current?.click()}>
+                          Choose file
+                        </Button>
+                        <span className="truncate text-sm text-muted-foreground">
+                          {editForm.photoFile?.name ?? "No file chosen"}
+                        </span>
+                      </div>
                       {editForm.photoPreview ? (
                         <img
                           src={editForm.photoPreview}
@@ -505,7 +517,7 @@ function CandidateDetail() {
                     label="Gender" 
                     value={
                       <div className="flex items-center gap-2">
-                        {candidate.gender}
+                        {formatGenderDisplay(String(candidate.gender))}
                         {candidate.gender === "Homme" ? (
                           <Mars className="h-4 w-4 text-blue-500" />
                         ) : candidate.gender === "Femme" ? (

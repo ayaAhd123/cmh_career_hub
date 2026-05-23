@@ -26,6 +26,7 @@ import {
   ResponsiveContainer, Legend, Label as RechartsLabel
 } from "recharts";
 import type { DashboardStats, TimeRange } from "@/lib/types";
+import { formatGenderDisplay } from "@/lib/export-i18n";
 
 const GENDER_COLORS: Record<string, string> = {
   Male: "#6366f1", // Indigo
@@ -136,6 +137,10 @@ function DashboardPage() {
   };
   const eduData = stats?.demographics.education ?? [];
   const genderData = stats?.demographics.gender ?? [];
+  const genderChartData = genderData.map((entry) => ({
+    ...entry,
+    name: formatGenderDisplay(entry.name),
+  }));
   const ageData = stats?.demographics.age ?? [];
   const activeCohorts = stats?.activePromotions ?? [];
   const hasCandidateData = eduData.some((d) => d.count > 0) || genderData.length > 0;
@@ -286,13 +291,13 @@ function DashboardPage() {
               <ChartSkeleton />
             ) : statsError ? (
               <ErrorStateMessage description={statsError} onRetry={loadStats} />
-            ) : genderData.length === 0 ? (
+            ) : genderChartData.length === 0 ? (
               <EmptyStateMessage title="No data yet" description="Gender breakdown appears once candidates are added." icon={PieChartIcon} />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie
-                    data={genderData}
+                    data={genderChartData}
                     dataKey={chartMode === "volume" ? "value" : "avg"}
                     nameKey="name"
                     cx="50%"
@@ -302,17 +307,17 @@ function DashboardPage() {
                     paddingAngle={3}
                     stroke="none"
                   >
-                    {genderData.map((entry, index) => {
+                    {genderChartData.map((entry, index) => {
                       const color = GENDER_COLORS[entry.name] ?? "#94a3b8";
                       if (chartMode === "volume") {
                         return <Cell key={entry.name} fill={color} />;
                       } else {
-                        const isMax = entry.avg === Math.max(...genderData.map(d => d.avg));
+                        const isMax = entry.avg === Math.max(...genderChartData.map(d => d.avg));
                         return <Cell key={`cell-${index}`} fill={color} opacity={isMax ? 1 : 0.4} />;
                       }
                     })}
                     <RechartsLabel
-                      value={chartMode === "volume" ? genderData.reduce((a, b) => a + b.value, 0) : (Math.round((genderData.reduce((a, b) => a + b.avg, 0) / genderData.length) * 10) / 10).toFixed(1)}
+                      value={chartMode === "volume" ? genderChartData.reduce((a, b) => a + b.value, 0) : (Math.round((genderChartData.reduce((a, b) => a + b.avg, 0) / genderChartData.length) * 10) / 10).toFixed(1)}
                       position="center"
                       className="fill-foreground text-2xl font-bold"
                     />
