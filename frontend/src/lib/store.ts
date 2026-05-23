@@ -28,7 +28,7 @@ const apiFetch = async (path: string, options: RequestInit = {}) => {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401) {
-      throw new Error("Session expirée — reconnectez-vous pour enregistrer en base.");
+      throw new Error("Session expired — sign in again to save to the database.");
     }
     throw new Error(
       (data as { message?: string }).message ||

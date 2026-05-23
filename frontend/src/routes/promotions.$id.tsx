@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import type { EducationLevel, Gender } from "@/lib/types";
 import { fetchPromotionStats, fetchPromotionExportCandidates, type PromotionStats } from "@/lib/promotion-api";
+import { formatGenderDisplay } from "@/lib/export-i18n";
 import {
   ArrowLeft,
   Users,
@@ -102,6 +103,8 @@ const COLORS: Record<string, string> = {
 };
 
 const GENDER_COLORS: Record<string, string> = {
+  Male: "hsl(220 70% 50%)",
+  Female: "hsl(340 75% 55%)",
   Homme: "hsl(220 70% 50%)",
   Femme: "hsl(340 75% 55%)",
   "Not provided": "hsl(0 0% 60%)",
@@ -466,6 +469,10 @@ function PromotionDetail() {
   const scoreDist = stats?.scoreDistribution ?? [];
   const top3 = stats?.topPerformers ?? [];
   const genderDist = stats?.demographics.gender ?? [];
+  const genderChartData = genderDist.map((entry) => ({
+    ...entry,
+    name: formatGenderDisplay(entry.name),
+  }));
   const educationDist = stats?.demographics.education ?? [];
   const ageDist = stats?.demographics.age ?? [];
   const kpis = stats?.kpis ?? { totalCandidates: 0, passRate: 0, avgScore: 0, atRisk: 0 };
@@ -737,12 +744,12 @@ function PromotionDetail() {
               <CardContent>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={genderDist}>
+                    <BarChart data={genderChartData}>
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                       <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} width={28} tickLine={false} axisLine={false} />
                       <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
                       <Bar dataKey="avg" radius={[6, 6, 0, 0]}>
-                        {genderDist.map((entry, index) => (
+                        {genderChartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={GENDER_COLORS[entry.name] || CHART_COLORS[index % CHART_COLORS.length]} />
                         ))}
                       </Bar>

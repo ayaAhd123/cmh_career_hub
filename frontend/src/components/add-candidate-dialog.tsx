@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createCandidateApi } from "@/lib/candidate-api";
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { EducationLevel, Gender } from "@/lib/types";
+import { formatGenderDisplay } from "@/lib/export-i18n";
 
 const phoneRe = /^\+?[\d\s().-]{8,20}$/;
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -42,6 +43,7 @@ export function AddCandidateDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<{
     firstName: string;
@@ -146,11 +148,11 @@ export function AddCandidateDialog({
         <div className="grid gap-4 sm:grid-cols-2 py-2 max-h-[65vh] overflow-y-auto pr-2">
           <div>
             <Label>First Name *</Label>
-            <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="Prénom" />
+            <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="First name" />
           </div>
           <div>
             <Label>Last Name *</Label>
-            <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Nom" />
+            <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Last name" />
           </div>
           <div>
             <Label>Email *</Label>
@@ -171,17 +173,17 @@ export function AddCandidateDialog({
           <div>
             <Label>Gender *</Label>
             <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v as Gender })}>
-              <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Homme">Homme</SelectItem>
-                <SelectItem value="Femme">Femme</SelectItem>
+                <SelectItem value="Homme">{formatGenderDisplay("Homme")}</SelectItem>
+                <SelectItem value="Femme">{formatGenderDisplay("Femme")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label>Education Level *</Label>
             <Select value={form.educationLevel} onValueChange={(v) => setForm({ ...form, educationLevel: v as EducationLevel })}>
-              <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 {(["Bac+2", "Bac+3", "Bac+5", "Bac+8"] as const).map((l) => (
                   <SelectItem key={l} value={l}>{l}</SelectItem>
@@ -191,7 +193,7 @@ export function AddCandidateDialog({
           </div>
           <div className="sm:col-span-2">
             <Label>Diploma Name *</Label>
-            <Input value={form.diplomaName} onChange={(e) => setForm({ ...form, diplomaName: e.target.value })} placeholder="Intitulé du diplôme" />
+            <Input value={form.diplomaName} onChange={(e) => setForm({ ...form, diplomaName: e.target.value })} placeholder="Degree title" />
           </div>
           <div className="sm:col-span-2">
             <Label>Diploma Average (/20) *</Label>
@@ -199,9 +201,11 @@ export function AddCandidateDialog({
           </div>
           <div className="sm:col-span-2">
             <Label>Photo (optional)</Label>
-            <Input
+            <input
+              ref={photoInputRef}
               type="file"
               accept="image/*"
+              className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
                 setForm({
@@ -211,6 +215,14 @@ export function AddCandidateDialog({
                 });
               }}
             />
+            <div className="mt-1 flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => photoInputRef.current?.click()}>
+                Choose file
+              </Button>
+              <span className="truncate text-sm text-muted-foreground">
+                {form.photoFile?.name ?? "No file chosen"}
+              </span>
+            </div>
             {form.photoPreview ? (
               <img
                 src={form.photoPreview}

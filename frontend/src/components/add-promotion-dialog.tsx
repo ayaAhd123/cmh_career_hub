@@ -30,12 +30,12 @@ export function AddPromotionDialog() {
     setLoading(true);
     try {
       const p = await add({ name: name.trim(), startDate });
-      toast.success(`Promotion ${p.id} créée — ajoutez des candidats quand vous voulez.`);
+      toast.success(`Promotion ${p.id} created — add candidates whenever you're ready.`);
       setOpen(false);
       setName("");
       setStartDate(new Date().toISOString().slice(0, 10));
     } catch (err) {
-      showApiError(err, "Impossible de créer la promotion");
+      showApiError(err, "Failed to create promotion");
     } finally {
       setLoading(false);
     }
@@ -70,10 +70,10 @@ export function AddPromotionDialog() {
           <Button onClick={submit} disabled={loading}>
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Création…
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
               </>
             ) : (
-              "Créer"
+              "Create"
             )}
           </Button>
         </DialogFooter>

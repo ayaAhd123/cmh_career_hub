@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 import type { Candidate, EducationLevel, Gender } from "@/lib/types";
+import { formatGenderDisplay } from "@/lib/export-i18n";
 
 export function EditCandidateDialog({
   candidate,
@@ -33,6 +34,7 @@ export function EditCandidateDialog({
   onSave?: (id: string, data: Partial<Candidate>) => Promise<void>;
 }) {
   const updateCandidate = useStore((s) => s.updateCandidate);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -147,7 +149,7 @@ export function EditCandidateDialog({
             <Input
               value={form.firstName}
               onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-              placeholder="Prénom"
+              placeholder="First name"
             />
           </div>
           <div>
@@ -155,7 +157,7 @@ export function EditCandidateDialog({
             <Input
               value={form.lastName}
               onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-              placeholder="Nom"
+              placeholder="Last name"
             />
           </div>
           <div>
@@ -206,11 +208,11 @@ export function EditCandidateDialog({
               onValueChange={(v) => setForm({ ...form, gender: v as Gender })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner" />
+                <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Homme">Homme</SelectItem>
-                <SelectItem value="Femme">Femme</SelectItem>
+                <SelectItem value="Homme">{formatGenderDisplay("Homme")}</SelectItem>
+                <SelectItem value="Femme">{formatGenderDisplay("Femme")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -221,7 +223,7 @@ export function EditCandidateDialog({
               onValueChange={(v) => setForm({ ...form, educationLevel: v as EducationLevel })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner" />
+                <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
                 {(["Bac+2", "Bac+3", "Bac+5", "Bac+8"] as const).map((level) => (
@@ -237,7 +239,7 @@ export function EditCandidateDialog({
             <Input
               value={form.diplomaName}
               onChange={(e) => setForm({ ...form, diplomaName: e.target.value })}
-              placeholder="Intitulé du diplôme"
+              placeholder="Degree title"
             />
           </div>
           <div className="sm:col-span-2">
@@ -259,10 +261,12 @@ export function EditCandidateDialog({
             />
           </div>
           <div className="sm:col-span-2">
-            <Label>Photo</Label>
-            <Input
+            <Label>Photo (optional)</Label>
+            <input
+              ref={photoInputRef}
               type="file"
               accept="image/*"
+              className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
                 setForm({
@@ -272,6 +276,14 @@ export function EditCandidateDialog({
                 });
               }}
             />
+            <div className="mt-1 flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => photoInputRef.current?.click()}>
+                Choose file
+              </Button>
+              <span className="truncate text-sm text-muted-foreground">
+                {form.photoFile?.name ?? "No file chosen"}
+              </span>
+            </div>
             {form.photoPreview ? (
               <img
                 src={form.photoPreview}

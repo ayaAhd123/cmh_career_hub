@@ -76,7 +76,7 @@ function InlineEdit({
       setEditing(false);
     } catch (err) {
       setVal(initialValue);
-      showApiError(err, "Impossible d'enregistrer le nom");
+      showApiError(err, "Failed to save name");
     } finally {
       setSaving(false);
     }
@@ -132,7 +132,7 @@ function PromotionsList() {
 
   useEffect(() => {
     void loadPromotions({ search: debouncedSearch }).catch((err) =>
-      showApiError(err, "Impossible de charger les promotions"),
+      showApiError(err, "Failed to load promotions"),
     );
   }, [debouncedSearch, loadPromotions]);
   const [statusFilter, setStatusFilter] = useState("All");
@@ -161,7 +161,7 @@ function PromotionsList() {
 
   const handleStartChange = (val: string) => {
     if (val && customEnd && val > customEnd) {
-      toast.error("La date de début doit être avant la date de fin");
+      toast.error("Start date must be before end date");
       return;
     }
     setCustomStart(val);
@@ -170,7 +170,7 @@ function PromotionsList() {
 
   const handleEndChange = (val: string) => {
     if (val && customStart && customStart > val) {
-      toast.error("La date de fin doit être après la date de début");
+      toast.error("End date must be after start date");
       return;
     }
     setCustomEnd(val);
@@ -283,7 +283,7 @@ function PromotionsList() {
         <div className="relative w-full lg:max-w-md shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Nom ou code PROMO-2026-001…"
+            placeholder="Name or code PROMO-2026-001…"
             className="pl-9 pr-10 bg-background"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -437,11 +437,11 @@ function PromotionsList() {
         </div>
       ) : filteredPromotions.length === 0 ? (
         <EmptyState
-          title="Aucune promotion trouvée"
+          title="No promotions found"
           description={
             debouncedSearch || statusFilter !== "All" || timeRange !== "all"
-              ? "Modifiez la recherche ou les filtres."
-              : "Créez votre première promotion avec le bouton ci-dessus."
+              ? "Try adjusting your search or filters."
+              : "Create your first promotion using the button above."
           }
         />
       ) : (
@@ -464,7 +464,7 @@ function PromotionsList() {
                           onSave={async (newName) => {
                             if (!newName.trim() || newName.trim() === p.name) return;
                             await updatePromotion(p.id, { name: newName.trim() });
-                            toast.success("Nom enregistré en base");
+                            toast.success("Name saved");
                           }}
                         />
                       </div>
@@ -585,7 +585,7 @@ function PromotionsList() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="cursor-pointer" disabled={actionLoading === "archive"}>
-              Annuler
+              Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               className="cursor-pointer"
@@ -596,9 +596,9 @@ function PromotionsList() {
                 try {
                   await archivePromotion(archiveId);
                   setArchiveId(null);
-                  toast.success("Promotion archivée");
+                  toast.success("Promotion archived");
                 } catch (err) {
-                  showApiError(err, "Échec de l'archivage");
+                  showApiError(err, "Failed to archive promotion");
                 } finally {
                   setActionLoading(null);
                 }
@@ -606,10 +606,10 @@ function PromotionsList() {
             >
               {actionLoading === "archive" ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Archivage…
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Archiving…
                 </>
               ) : (
-                "Archiver"
+                "Archive"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -627,7 +627,7 @@ function PromotionsList() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="cursor-pointer" disabled={actionLoading === "delete"}>
-              Annuler
+              Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -638,9 +638,9 @@ function PromotionsList() {
                 try {
                   await deletePromotion(deleteId);
                   setDeleteId(null);
-                  toast.success("Promotion supprimée — restauration possible depuis Archivées");
+                  toast.success("Promotion deleted — you can restore it from Archived");
                 } catch (err) {
-                  showApiError(err, "Échec de la suppression");
+                  showApiError(err, "Failed to delete promotion");
                 } finally {
                   setActionLoading(null);
                 }
@@ -648,10 +648,10 @@ function PromotionsList() {
             >
               {actionLoading === "delete" ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Suppression…
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting…
                 </>
               ) : (
-                "Supprimer"
+                "Delete"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
