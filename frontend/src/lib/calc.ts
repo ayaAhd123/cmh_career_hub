@@ -1,5 +1,5 @@
 import type { Candidate, Category, DisciplineSkills, ModuleScore, Promotion, Skills, WorkSkills } from "./types";
-import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO, startOfDay, endOfDay } from "date-fns";
 
 export const disciplineAvg = (d: DisciplineSkills): number =>
   (d.discipline + d.motivation + d.communication + d.listening) / 4;
@@ -36,6 +36,24 @@ export const categoryColor = (c: Category) => {
     case "Passable": return "bg-passable text-white";
     case "Critical": return "bg-critical text-white";
   }
+};
+
+/** True if `dateIso` falls within optional custom start/end (inclusive, local day). */
+export const isWithinCustomRange = (
+  dateIso: string,
+  customStart: string,
+  customEnd: string,
+): boolean => {
+  const date = startOfDay(parseISO(dateIso));
+  if (customStart) {
+    const start = startOfDay(parseISO(customStart));
+    if (date < start) return false;
+  }
+  if (customEnd) {
+    const end = endOfDay(parseISO(customEnd));
+    if (date > end) return false;
+  }
+  return true;
 };
 
 export const calcEndDate = (start: string) =>
