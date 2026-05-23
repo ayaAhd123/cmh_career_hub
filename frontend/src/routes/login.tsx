@@ -19,8 +19,9 @@ function LoginPage() {
   const isAuth = useAuth((s) => s.isAuthenticated);
   const nav = useNavigate();
 
-  const [email, setEmail] = useState("admin@cmh.ma");
-  const [password, setPassword] = useState("1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!hydrated || !isAuth) return;
@@ -30,12 +31,17 @@ function LoginPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     (async () => {
-      const result = await login(email, password);
-      if (result.ok) {
-        toast.success("Welcome back!");
-        nav({ to: "/" });
-      } else {
-        toast.error(result.error ?? "Invalid credentials");
+      setLoading(true);
+      try {
+        const result = await login(email.trim(), password);
+        if (result.ok) {
+          toast.success("Welcome back!");
+          nav({ to: "/" });
+        } else {
+          toast.error(result.error ?? "Invalid credentials");
+        }
+      } finally {
+        setLoading(false);
       }
     })();
   };
@@ -55,17 +61,30 @@ function LoginPage() {
           </div>
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div>
-              <Label>Password</Label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-            <Button type="submit" className="w-full">Sign in</Button>
-            <p className="text-xs text-center text-muted-foreground">
-              Default: admin@cmh.ma / 1234
-            </p>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in…" : "Sign in"}
+            </Button>
           </form>
         </CardContent>
       </Card>

@@ -9,15 +9,19 @@ use Illuminate\Support\Facades\Hash;
 class AdminUserSeeder extends Seeder
 {
     /**
-     * Ensure the default admin account exists with a known password.
+     * Create the initial admin account if missing. Never overwrites an existing password.
      */
     public function run(): void
     {
         $user = User::withTrashed()->firstOrNew(['email' => 'admin@cmh.ma']);
+        $isNew = ! $user->exists;
 
-        $user->full_name = 'Admin User';
-        $user->password = Hash::make('1234');
-        $user->role = 'Admin';
+        if ($isNew) {
+            $user->full_name = 'Admin User';
+            $user->password = Hash::make(env('ADMIN_INITIAL_PASSWORD', 'ChangeMeNow!'));
+            $user->role = 'Admin';
+        }
+
         $user->deleted_at = null;
         $user->save();
     }

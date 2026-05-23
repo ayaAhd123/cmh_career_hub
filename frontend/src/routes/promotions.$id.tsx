@@ -118,14 +118,17 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 function PromotionDetail() {
   const { id } = Route.useParams();
-  const promotion = useStore((s) => s.promotions.find((p) => p.id === id));
+  const promotion =
+    useStore((s) => s.promotions.find((p) => p.id === id)) ??
+    useStore((s) => s.archivedPromotions.find((p) => p.id === id));
   const loadPromotions = useStore((s) => s.loadPromotions);
+  const loadArchivedPromotions = useStore((s) => s.loadArchivedPromotions);
 
   useEffect(() => {
     if (!promotion) {
-      void loadPromotions();
+      void Promise.all([loadPromotions(), loadArchivedPromotions()]);
     }
-  }, [id, promotion, loadPromotions]);
+  }, [id, promotion, loadPromotions, loadArchivedPromotions]);
   const allCandidates = useStore((s) => s.candidates);
   const candidates = useMemo(
     () => allCandidates.filter((c) => c.promotionId === id && !c.archived),
@@ -465,10 +468,15 @@ function PromotionDetail() {
                     <Button 
                       variant="destructive" 
                       disabled={!confirmOne || !confirmTwo}
-                      onClick={() => {
-                        archive(promotion.id);
-                        setArchiveDialogOpen(false);
-                        nav({ to: "/" });
+                      onClick={async () => {
+                        try {
+                          await archive(promotion.id);
+                          setArchiveDialogOpen(false);
+                          toast.success("Promotion archived");
+                          nav({ to: "/promotions" });
+                        } catch (e) {
+                          toast.error((e as Error).message || "Failed to archive");
+                        }
                       }}
                     >
                       Confirm Archive

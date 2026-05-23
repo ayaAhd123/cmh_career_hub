@@ -13,12 +13,40 @@ class PromotionController extends Controller
     /**
      * Display a listing of the promotions.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $promotions = Promotion::orderBy('created_at', 'desc')->get();
+        $query = Promotion::query()->orderByDesc('created_at');
+
+        if ($search = trim((string) $request->query('search', ''))) {
+            $term = '%' . addcslashes($search, '%_\\') . '%';
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', $term)
+                    ->orWhere('promo_code', 'like', $term);
+            });
+        }
 
         return response()->json(
-            $promotions->map(fn($p) => $this->formatPromotion($p))
+            $query->get()->map(fn ($p) => $this->formatPromotion($p))
+        );
+    }
+
+    /**
+     * List archived / soft-deleted promotions (for restore).
+     */
+    public function archived(Request $request)
+    {
+        $query = Promotion::onlyTrashed()->orderByDesc('deleted_at');
+
+        if ($search = trim((string) $request->query('search', ''))) {
+            $term = '%' . addcslashes($search, '%_\\') . '%';
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', $term)
+                    ->orWhere('promo_code', 'like', $term);
+            });
+        }
+
+        return response()->json(
+            $query->get()->map(fn ($p) => $this->formatPromotion($p))
         );
     }
 
@@ -80,8 +108,26 @@ class PromotionController extends Controller
      */
     public function destroy(Promotion $promotion)
     {
+        // Soft delete only — linked candidates stay in the database for restore.
         $promotion->delete();
+
         return response()->noContent();
+    }
+
+    /**
+     * Restore a soft-deleted promotion and its visibility in the active list.
+     */
+    public function restore(Promotion $promotion)
+    {
+        if (! $promotion->trashed()) {
+            return response()->json(['message' => 'Promotion is not deleted.'], 400);
+        }
+
+        $promotion->restore();
+        $promotion->status = 'Active';
+        $promotion->save();
+
+        return response()->json($this->formatPromotion($promotion->fresh()));
     }
 
     /**
@@ -128,10 +174,7 @@ class PromotionController extends Controller
             return response()->json(['message' => 'Promotion must be archived before permanent deletion.'], 400);
         }
 
-        $promotion->status = 'Deleted';
-        $promotion->save();
-        // Since it's already trashed, calling delete() again might not be necessary, but just in case:
-        $promotion->delete();
+        $promotion->forceDelete();
 
         return response()->noContent();
     }
@@ -148,7 +191,7 @@ class PromotionController extends Controller
             'startDate' => $p->start_date->format('Y-m-d'),
             'endDate'   => $p->end_date->format('Y-m-d'),
             'status'    => $p->status,
-            'archived'  => $p->status === 'Archived',
+            'archived'  => $p->trashed() || $p->status === 'Archived',
             'createdAt' => $p->created_at->toISOString(),
             'dbId'      => $p->id,
         ];

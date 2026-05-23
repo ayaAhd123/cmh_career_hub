@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import type { TimeRange } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -91,9 +91,16 @@ function InlineEdit({ initialValue, onSave }: { initialValue: string; onSave: (v
 
 function ArchivedPromotions() {
   const candidates = useStore((s) => s.candidates);
-  const promotions = useStore((s) => s.promotions);
+  const archivedPromotions = useStore((s) => s.archivedPromotions);
+  const archivedPromotionsLoaded = useStore((s) => s.archivedPromotionsLoaded);
+  const loadArchivedPromotions = useStore((s) => s.loadArchivedPromotions);
   const updatePromotion = useStore((s) => s.updatePromotion);
-  const deletePromotion = useStore((s) => s.deletePromotion);
+  const restorePromotion = useStore((s) => s.restorePromotion);
+  const permanentDeletePromotion = useStore((s) => s.permanentDeletePromotion);
+
+  useEffect(() => {
+    if (!archivedPromotionsLoaded) void loadArchivedPromotions();
+  }, [archivedPromotionsLoaded, loadArchivedPromotions]);
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
@@ -131,13 +138,12 @@ function ArchivedPromotions() {
 
   // Filtered and sorted promotions
   const filteredPromotions = useMemo(() => {
-    let sorted = [...promotions].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+    let sorted = [...archivedPromotions].sort(
+      (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
+    );
     const today = new Date();
 
     return sorted.filter((p) => {
-      // Archive filter (ONLY archived)
-      if (!p.archived) return false;
-
       // Time Range Filter
       if (timeRange !== "all") {
         const d = new Date(p.startDate);
@@ -171,7 +177,7 @@ function ArchivedPromotions() {
 
       return true;
     });
-  }, [promotions, searchQuery, statusFilter, timeRange, customStart, customEnd]);
+  }, [archivedPromotions, searchQuery, statusFilter, timeRange, customStart, customEnd]);
 
   return (
     <div className="space-y-6">
@@ -283,10 +289,10 @@ function ArchivedPromotions() {
                       <p className="text-xs font-mono text-muted-foreground">{p.id}</p>
                       <InlineEdit
                         initialValue={p.name}
-                        onSave={(newName) => {
-                          if (newName.trim() && newName !== p.name) {
-                            updatePromotion(p.id, { name: newName.trim() });
-                          }
+                        onSave={async (newName) => {
+                          if (!newName.trim() || newName.trim() === p.name) return;
+                          await updatePromotion(p.id, { name: newName.trim() });
+                          toast.success("Promotion name saved");
                         }}
                       />
                     </div>
@@ -300,10 +306,17 @@ function ArchivedPromotions() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem className="cursor-pointer" onClick={() => {
-                            updatePromotion(p.id, { archived: false });
-                            toast.success("Promotion restored to Active Directory");
-                          }}>
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={async () => {
+                              try {
+                                await restorePromotion(p.id);
+                                toast.success("Promotion restored with its candidates");
+                              } catch (e) {
+                                toast.error((e as Error).message || "Failed to restore");
+                              }
+                            }}
+                          >
                             <ArchiveRestore className="mr-2 h-4 w-4" /> Restore Promotion
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
@@ -374,19 +387,21 @@ function ArchivedPromotions() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the promotion and 
-              remove all candidates and historical data associated with it from our servers.
+              This permanently removes the promotion from the database. Use this only when you are sure you will never need to restore it. Candidate records linked to this promotion may also be removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
             <AlertDialogAction 
               className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90" 
-              onClick={() => {
-                if (deleteId) {
-                  deletePromotion(deleteId);
+              onClick={async () => {
+                if (!deleteId) return;
+                try {
+                  await permanentDeletePromotion(deleteId);
                   setDeleteId(null);
                   toast.success("Promotion permanently deleted");
+                } catch (e) {
+                  toast.error((e as Error).message || "Failed to delete");
                 }
               }}
             >

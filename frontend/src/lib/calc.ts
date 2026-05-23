@@ -49,8 +49,10 @@ export const promotionProgress = (p: Promotion) => {
   return { workingDone, totalWorking, pct, elapsed, total };
 };
 
-export const promotionStatus = (p: Promotion): Promotion["status"] => {
+/** Prefer status stored in the database; fall back to date-based logic for legacy rows. */
+export const promotionStatus = (p: Promotion): Promotion["status"] | "Archived" => {
   if (p.archived) return "Archived";
+  if (p.status) return p.status;
   const today = new Date();
   if (parseISO(p.endDate) < today) return "Completed";
   return "Active";

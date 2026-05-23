@@ -14,7 +14,7 @@ import appCss from "../styles.css?url";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Toaster } from "@/components/ui/sonner";
-import { seedSampleData } from "@/lib/seed";
+import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useAuthHydrated } from "@/lib/auth-hydration";
 import { ProfileMenu } from "@/components/profile-menu";
@@ -112,48 +112,53 @@ function RootComponent() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const isBrowser = typeof window !== "undefined";
   const hydrated = useAuthHydrated();
+  const sessionReady = useAuth((s) => s.sessionReady);
   const isAuth = useAuth((s) => s.isAuthenticated);
   const token = useAuth((s) => s.token);
   const nav = useNavigate();
+
+  const authReady = hydrated && sessionReady;
   const hasSession = isAuth || Boolean(token);
 
   useEffect(() => {
     if (!isAuth) return;
-    void seedSampleData().catch(console.error);
+    void Promise.all([
+      useStore.getState().loadPromotions(),
+      useStore.getState().loadArchivedPromotions(),
+    ]).catch(console.error);
   }, [isAuth]);
 
   useEffect(() => {
-    if (!isBrowser || !hydrated) return;
+    if (!isBrowser || !authReady) return;
     if (!hasSession && path !== "/login") {
       nav({ to: "/login", replace: true });
     }
-  }, [isBrowser, hydrated, hasSession, path, nav]);
+  }, [isBrowser, authReady, hasSession, path, nav]);
 
   const appShell = (
     <ThemeProvider>
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 border-b bg-card flex items-center px-4 gap-3 sticky top-0 z-30">
-            <SidebarTrigger />
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full bg-background">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col min-w-0">
+            <header className="h-14 border-b bg-card flex items-center px-4 gap-3 sticky top-0 z-30">
+              <SidebarTrigger />
               <div className="flex-1" />
               <ThemeToggle />
               <RemindersPopover />
               <ProfileMenu />
-          </header>
-          <main className="flex-1 p-6 pb-24 max-w-[1600px] w-full mx-auto">
-            <Outlet />
-          </main>
+            </header>
+            <main className="flex-1 p-6 pb-24 max-w-[1600px] w-full mx-auto">
+              <Outlet />
+            </main>
+          </div>
         </div>
-      </div>
-      <AiChatBubble />
-      <Toaster richColors position="top-right" />
-    </SidebarProvider>
+        <AiChatBubble />
+        <Toaster richColors position="top-right" />
+      </SidebarProvider>
     </ThemeProvider>
   );
 
-  // Login page: render alone (no sidebar/header)
   if (path === "/login") {
     return (
       <QueryClientProvider client={queryClient}>
@@ -168,20 +173,29 @@ function RootComponent() {
     );
   }
 
-  // Keep the same tree on SSR and on the client until auth is rehydrated (avoids hydration crash).
-  if (!isBrowser || !hydrated || hasSession) {
+  if (!isBrowser || !authReady) {
     return (
       <QueryClientProvider client={queryClient}>
-        {appShell}
+        <ThemeProvider>
+          <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+            Loading…
+          </div>
+        </ThemeProvider>
       </QueryClientProvider>
     );
   }
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
-        Redirecting to login…
-      </div>
-    </QueryClientProvider>
-  );
+  if (!hasSession) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+            Redirecting to login…
+          </div>
+        </ThemeProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  return <QueryClientProvider client={queryClient}>{appShell}</QueryClientProvider>;
 }

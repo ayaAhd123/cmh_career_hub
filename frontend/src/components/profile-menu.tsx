@@ -32,16 +32,16 @@ export function ProfileMenu() {
             {initials || "A"}
           </div>
           <div className="hidden sm:flex flex-col items-start leading-tight">
-            <span className="text-sm font-medium">{profile?.name ?? "Admin"}</span>
-            <span className="text-[10px] text-muted-foreground">{profile?.email ?? "admin@cmh.ma"}</span>
+            <span className="text-sm font-medium">{profile?.name ?? "Account"}</span>
+            <span className="text-[10px] text-muted-foreground">{profile?.email ?? ""}</span>
           </div>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="flex flex-col">
-            <span className="font-semibold">{profile?.name ?? "Admin"}</span>
-            <span className="text-xs font-normal text-muted-foreground">{profile?.email ?? "admin@cmh.ma"}</span>
+            <span className="font-semibold">{profile?.name ?? "Account"}</span>
+            <span className="text-xs font-normal text-muted-foreground">{profile?.email ?? ""}</span>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

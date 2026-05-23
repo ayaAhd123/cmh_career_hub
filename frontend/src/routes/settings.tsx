@@ -35,7 +35,6 @@ function SettingsPage() {
   const theme = useTheme((s) => s.theme);
   const setTheme = useTheme((s) => s.setTheme);
 
-  const reset = useStore((s) => s.resetSeed);
   const restore = useStore((s) => s.restoreCandidate);
   const hardDelete = useStore((s) => s.hardDeleteCandidate);
   const allCandidates = useStore((s) => s.candidates);
@@ -225,38 +224,14 @@ function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Database className="h-4 w-4" /> Data</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Database className="h-4 w-4" /> Data storage</CardTitle>
         </CardHeader>
-        <CardContent>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">
-                Reset all data
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Reset all data?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This cannot be undone. All your local data will be wiped out.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => {
-                    reset();
-                    toast.success("Reset. Refresh to reseed sample data.");
-                  }}
-                >
-                  Confirm Reset
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <p className="text-xs text-muted-foreground mt-2">
-            All data is stored locally in your browser (localStorage).
+        <CardContent className="text-sm text-muted-foreground space-y-2">
+          <p>
+            Your account (name, email, password) and promotions are saved in the application database on the server.
+          </p>
+          <p>
+            Profile and password changes on this page are applied immediately to your database record.
           </p>
         </CardContent>
       </Card>

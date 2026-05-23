@@ -20,7 +20,9 @@ Route::prefix('v1')->group(function () {
         Route::post('auth/change-password', [AuthController::class, 'changePassword']);
 
         // Custom Promotion endpoints
+        Route::get('promotions/archived/list', [PromotionController::class, 'archived']);
         Route::post('promotions/{promotion}/archive', [PromotionController::class, 'archive']);
+        Route::post('promotions/{promotion}/restore', [PromotionController::class, 'restore'])->withTrashed();
         Route::delete('promotions/{promotion}/force-delete', [PromotionController::class, 'forceDelete'])->withTrashed();
 
         // Promotions CRUD

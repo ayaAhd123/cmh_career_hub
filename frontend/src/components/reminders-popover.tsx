@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Bell } from "lucide-react";
+import { Bell, CalendarClock, Users, AlertTriangle } from "lucide-react";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { promotionStatus } from "@/lib/calc";
@@ -9,89 +9,99 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-const REMINDER_LIMIT = 6;
+const REMINDER_LIMIT = 8;
+/** Alert when an active promotion has fewer candidates than this. */
+const MIN_CANDIDATES = 5;
+const ENDING_SOON_DAYS = 7;
+const STARTING_SOON_DAYS = 7;
+
+type Reminder = {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  time: string;
+  promotionId: string;
+  priority: number;
+  icon: typeof Bell;
+};
 
 export function RemindersPopover() {
   const promotions = useStore((s) => s.promotions);
   const candidates = useStore((s) => s.candidates);
-
   const [open, setOpen] = useState(false);
 
   const reminders = useMemo(() => {
     const now = new Date();
+    const items: Reminder[] = [];
 
-    const results = promotions.flatMap((promotion) => {
+    promotions.forEach((promotion) => {
+      if (promotion.archived) return;
+
       const status = promotionStatus(promotion);
       const startIn = differenceInCalendarDays(parseISO(promotion.startDate), now);
       const endIn = differenceInCalendarDays(parseISO(promotion.endDate), now);
-      const promoCandidates = candidates.filter((c) => c.promotionId === promotion.id && !c.archived);
-      const graduatedCount = promoCandidates.filter((c) => c.status === "Graduated").length;
+      const promoCandidates = candidates.filter(
+        (c) => c.promotionId === promotion.id && !c.archived,
+      );
 
-      const remindersForPromo = [] as Array<{
-        title: string;
-        description: string;
-        type: string;
-        time: string;
-        href: string;
-      }>;
+      if (status !== "Active" && status !== "Pending") return;
 
-      if (status === "Active") {
-        if (endIn >= 0 && endIn <= 7) {
-          remindersForPromo.push({
-            title: `${promotion.name} ends in ${endIn} day${endIn === 1 ? "" : "s"}`,
-            description: "Review results and add admin notes before the campaign closes.",
-            type: "Promotion",
-            time: `${endIn}d left`,
-            href: `/promotions/${promotion.id}`,
-          });
-        }
-
-        if (startIn > 0 && startIn <= 7) {
-          remindersForPromo.push({
-            title: `${promotion.name} starts in ${startIn} day${startIn === 1 ? "" : "s"}`,
-            description: "Prepare the campaign and add notes ahead of launch.",
-            type: "Upcoming",
-            time: `Starts in ${startIn}d`,
-            href: `/promotions/${promotion.id}`,
-          });
-        }
-
-        if (promoCandidates.length < 8 && startIn <= 0) {
-          remindersForPromo.push({
-            title: `${promotion.name} has only ${promoCandidates.length} candidates`,
-            description: "You may want to follow up with more candidates or review engagement.",
-            type: "Reminder",
-            time: "Low activity",
-            href: `/promotions/${promotion.id}`,
-          });
-        }
-
-        if (graduatedCount === 0 && startIn <= 0) {
-          remindersForPromo.push({
-            title: `${promotion.name} has no graduates yet`,
-            description: "Consider adding progress notes or checking candidate outcomes.",
-            type: "Insight",
-            time: "Needs review",
-            href: `/promotions/${promotion.id}`,
-          });
-        }
-
-        if (endIn >= 8 && endIn <= 14) {
-          remindersForPromo.push({
-            title: `${promotion.name} is halfway through`,
-            description: "Keep an eye on performance as the promotion moves into its final phase.",
-            type: "Progress",
-            time: `In ${endIn}d`,
-            href: `/promotions/${promotion.id}`,
-          });
-        }
+      if (endIn >= 0 && endIn <= ENDING_SOON_DAYS) {
+        items.push({
+          id: `${promotion.id}-end`,
+          title: `« ${promotion.name} » se termine bientôt`,
+          description: `${promotion.id} — ${endIn === 0 ? "dernier jour" : `${endIn} jour(s) restant(s)`}. Pensez à finaliser les évaluations.`,
+          type: "Fin proche",
+          time: endIn === 0 ? "Aujourd'hui" : `J-${endIn}`,
+          promotionId: promotion.id,
+          priority: endIn <= 3 ? 1 : 2,
+          icon: CalendarClock,
+        });
       }
 
-      return remindersForPromo;
+      if (startIn > 0 && startIn <= STARTING_SOON_DAYS) {
+        items.push({
+          id: `${promotion.id}-start`,
+          title: `« ${promotion.name} » démarre bientôt`,
+          description: `${promotion.id} — lancement dans ${startIn} jour(s). Préparez les candidats.`,
+          type: "Démarrage",
+          time: `D-${startIn}`,
+          promotionId: promotion.id,
+          priority: 3,
+          icon: CalendarClock,
+        });
+      }
+
+      if (startIn <= 0 && promoCandidates.length < MIN_CANDIDATES) {
+        items.push({
+          id: `${promotion.id}-low`,
+          title: `Peu de candidats — ${promotion.name}`,
+          description: `Seulement ${promoCandidates.length} candidat(s) sur ${MIN_CANDIDATES} recommandés. Ajoutez des participants.`,
+          type: "Effectif",
+          time: `${promoCandidates.length} cand.`,
+          promotionId: promotion.id,
+          priority: 2,
+          icon: Users,
+        });
+      }
+
+      if (startIn <= 0 && endIn > ENDING_SOON_DAYS && promoCandidates.length === 0) {
+        items.push({
+          id: `${promotion.id}-empty`,
+          title: `Promotion vide — ${promotion.name}`,
+          description: `${promotion.id} n'a aucun candidat. Ajoutez des personnes depuis la fiche promotion.`,
+          type: "Action",
+          time: "0 cand.",
+          promotionId: promotion.id,
+          priority: 1,
+          icon: AlertTriangle,
+        });
+      }
     });
 
-    return results
-      .sort((a, b) => a.time.localeCompare(b.time))
+    return items
+      .sort((a, b) => a.priority - b.priority || a.time.localeCompare(b.time))
       .slice(0, REMINDER_LIMIT);
   }, [promotions, candidates]);
 
@@ -109,65 +119,76 @@ export function RemindersPopover() {
             open
               ? "bg-muted/10 text-foreground"
               : hasReminders
-              ? "bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive-foreground"
-              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
           )}
-          aria-label="Open reminders"
+          aria-label="Ouvrir les rappels"
         >
           <Bell className="h-5 w-5" />
           {!open && hasReminders ? (
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
+            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
+              {reminders.length > 9 ? "9+" : reminders.length}
+            </span>
           ) : null}
         </Button>
       </PopoverTrigger>
       <PopoverContent
         side="bottom"
         align="end"
-        className="w-80 p-4 bg-card ring-1 ring-border/20 shadow-2xl"
+        className="w-[22rem] p-4 bg-card ring-1 ring-border/20 shadow-2xl"
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold">Reminders</p>
-            <p className="text-xs text-muted-foreground">Actionable alerts for your promotions</p>
+            <p className="text-sm font-semibold">Rappels</p>
+            <p className="text-xs text-muted-foreground">
+              Fins proches, effectifs faibles, promotions à préparer
+            </p>
           </div>
           <Badge variant="secondary" className="rounded-full px-2 py-1 text-[11px]">
             {reminders.length}
           </Badge>
         </div>
 
-        <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
+        <div className="mt-4 space-y-2 max-h-80 overflow-y-auto">
           {reminders.length > 0 ? (
-            reminders.map((reminder) => (
-              <Link
-                key={reminder.title}
-                to={reminder.href}
-                className="group block rounded-lg border border-border/80 bg-card px-3 py-2 transition hover:border-primary/70 hover:bg-primary/5"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="text-[9px] uppercase tracking-[0.2em] py-1 px-2">
-                    {reminder.type}
-                  </Badge>
-                  <span className="text-[11px] text-muted-foreground">{reminder.time}</span>
-                </div>
-                <p className="mt-2 text-sm font-semibold text-foreground line-clamp-2">{reminder.title}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground line-clamp-2">{reminder.description}</p>
-              </Link>
-            ))
+            reminders.map((reminder) => {
+              const Icon = reminder.icon;
+              return (
+                <Link
+                  key={reminder.id}
+                  to="/promotions/$id"
+                  params={{ id: reminder.promotionId }}
+                  onClick={() => setOpen(false)}
+                  className="group flex gap-3 rounded-lg border border-border/80 bg-card px-3 py-2.5 transition hover:border-primary/70 hover:bg-primary/5"
+                >
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                    <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="text-[9px] uppercase tracking-wider py-0">
+                        {reminder.type}
+                      </Badge>
+                      <span className="text-[11px] font-medium text-muted-foreground shrink-0">
+                        {reminder.time}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-sm font-semibold text-foreground line-clamp-2">
+                      {reminder.title}
+                    </p>
+                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground line-clamp-2">
+                      {reminder.description}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })
           ) : (
-            <div className="rounded-lg border border-border/80 bg-card px-3 py-4 text-center text-sm text-muted-foreground">
-              No reminders at the moment.
+            <div className="rounded-lg border border-border/80 bg-muted/30 px-3 py-6 text-center text-sm text-muted-foreground">
+              Aucun rappel pour le moment.
             </div>
           )}
         </div>
-
-        {reminders.length > 0 && (
-          <div className="mt-4 border-t border-border pt-3 flex items-center justify-between gap-3">
-            <span className="text-xs text-muted-foreground">Showing {reminders.length} reminders</span>
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-              Mark all read
-            </Button>
-          </div>
-        )}
       </PopoverContent>
     </Popover>
   );

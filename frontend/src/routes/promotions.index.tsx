@@ -1,12 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useStore } from "@/lib/store";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { showApiError } from "@/lib/api-error";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/badges";
 import { formatDate, overallAverage, passRate, promotionProgress, promotionStatus } from "@/lib/calc";
-import { ArrowRight, Search, Inbox, SlidersHorizontal, Calendar, Check, X, PencilLine, ChevronLeft, ChevronRight, ArrowDownUp, ChevronDown, MoreVertical, Archive, Trash2 } from "lucide-react";
+import { ArrowRight, Search, Inbox, SlidersHorizontal, Calendar, Check, X, PencilLine, ChevronLeft, ChevronRight, ArrowDownUp, ChevronDown, MoreVertical, Archive, Trash2, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
@@ -50,9 +53,33 @@ function EmptyState({ title, description, icon: Icon = Inbox }: { title: string;
   );
 }
 
-function InlineEdit({ initialValue, onSave }: { initialValue: string; onSave: (v: string) => void }) {
+function InlineEdit({
+  initialValue,
+  onSave,
+}: {
+  initialValue: string;
+  onSave: (v: string) => void | Promise<void>;
+}) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(initialValue);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setVal(initialValue);
+  }, [initialValue, editing]);
+
+  const commit = async () => {
+    setSaving(true);
+    try {
+      await onSave(val);
+      setEditing(false);
+    } catch (err) {
+      setVal(initialValue);
+      showApiError(err, "Impossible d'enregistrer le nom");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (editing) {
     return (
@@ -62,12 +89,13 @@ function InlineEdit({ initialValue, onSave }: { initialValue: string; onSave: (v
           value={val}
           onChange={(e) => setVal(e.target.value)}
           className="h-7 text-sm py-1 px-2 w-[180px] font-semibold"
+          disabled={saving}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') { onSave(val); setEditing(false); }
-            if (e.key === 'Escape') { setVal(initialValue); setEditing(false); }
+            if (e.key === "Enter") void commit();
+            if (e.key === "Escape") { setVal(initialValue); setEditing(false); }
           }}
         />
-        <Button size="icon" variant="ghost" className="h-7 w-7 text-success shrink-0" onClick={() => { onSave(val); setEditing(false); }}>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-success shrink-0" disabled={saving} onClick={() => void commit()}>
           <Check className="h-4 w-4" />
         </Button>
         <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={() => { setVal(initialValue); setEditing(false); }}>
@@ -92,15 +120,26 @@ function InlineEdit({ initialValue, onSave }: { initialValue: string; onSave: (v
 function PromotionsList() {
   const promotions = useStore((s) => s.promotions);
   const candidates = useStore((s) => s.candidates);
+  const promotionsLoading = useStore((s) => s.promotionsLoading);
+  const loadPromotions = useStore((s) => s.loadPromotions);
   const updatePromotion = useStore((s) => s.updatePromotion);
+  const archivePromotion = useStore((s) => s.archivePromotion);
   const deletePromotion = useStore((s) => s.deletePromotion);
 
-  // Filters state
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
+  useEffect(() => {
+    void loadPromotions({ search: debouncedSearch }).catch((err) =>
+      showApiError(err, "Impossible de charger les promotions"),
+    );
+  }, [debouncedSearch, loadPromotions]);
   const [statusFilter, setStatusFilter] = useState("All");
   const [sortBy, setSortBy] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [archiveId, setArchiveId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<"archive" | "delete" | null>(null);
   const timeRange = useStore((s) => s.globalTimeRange);
   const customStart = useStore((s) => s.globalCustomStart);
   const customEnd = useStore((s) => s.globalCustomEnd);
@@ -169,11 +208,6 @@ function PromotionsList() {
         }
       }
 
-      // Search filter
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = p.name.toLowerCase().includes(searchLower) || p.id.toLowerCase().includes(searchLower);
-      if (!matchesSearch) return false;
-
       // Status filter
       if (statusFilter !== "All") {
         const status = promotionStatus(p);
@@ -196,7 +230,7 @@ function PromotionsList() {
        if (sortBy === 'pass_rate_desc') return b.passRate - a.passRate;
        return 0;
     });
-  }, [promotions, candidates, searchQuery, statusFilter, timeRange, customStart, customEnd, sortBy]);
+  }, [promotions, candidates, statusFilter, timeRange, customStart, customEnd, sortBy]);
 
   // Reset page when filters change
   useMemo(() => {
@@ -231,12 +265,15 @@ function PromotionsList() {
         <div className="relative w-full lg:max-w-md shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search promotions by name or ID..."
-            className="pl-9 pr-9 bg-background"
+            placeholder="Nom ou code PROMO-2026-001…"
+            className="pl-9 pr-10 bg-background"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-busy={promotionsLoading}
           />
-          {searchQuery && (
+          {promotionsLoading ? (
+            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          ) : searchQuery ? (
             <Button
               variant="ghost"
               size="icon"
@@ -245,7 +282,7 @@ function PromotionsList() {
             >
               <X className="h-4 w-4" />
             </Button>
-          )}
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto lg:justify-end">
@@ -337,10 +374,33 @@ function PromotionsList() {
       </div>
 
       {/* Grid List */}
-      {filteredPromotions.length === 0 ? (
+      {promotionsLoading && promotions.length === 0 ? (
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6 space-y-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-7 w-3/4" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-2 w-full" />
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : filteredPromotions.length === 0 ? (
         <EmptyState
-          title="No promotions found"
-          description={searchQuery || statusFilter !== "All" ? "Try adjusting your search or filters to find what you're looking for." : "You haven't created any promotions yet."}
+          title="Aucune promotion trouvée"
+          description={
+            debouncedSearch || statusFilter !== "All" || timeRange !== "all"
+              ? "Modifiez la recherche ou les filtres."
+              : "Créez votre première promotion avec le bouton ci-dessus."
+          }
         />
       ) : (
         <div className="space-y-6">
@@ -359,10 +419,10 @@ function PromotionsList() {
                         <p className="text-xs font-mono text-muted-foreground">{p.id}</p>
                         <InlineEdit
                           initialValue={p.name}
-                          onSave={(newName) => {
-                            if (newName.trim() && newName !== p.name) {
-                              updatePromotion(p.id, { name: newName.trim() });
-                            }
+                          onSave={async (newName) => {
+                            if (!newName.trim() || newName.trim() === p.name) return;
+                            await updatePromotion(p.id, { name: newName.trim() });
+                            toast.success("Nom enregistré en base");
                           }}
                         />
                       </div>
@@ -377,9 +437,15 @@ function PromotionsList() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
-
-                            <DropdownMenuItem 
-                              className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10" 
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onClick={() => setArchiveId(p.id)}
+                            >
+                              <Archive className="mr-2 h-4 w-4" /> Archive Promotion
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
                               onClick={() => setDeleteId(p.id)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" /> Delete Promotion
@@ -466,29 +532,85 @@ function PromotionsList() {
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      {/* Archive Confirmation */}
+      <AlertDialog open={!!archiveId} onOpenChange={(open) => !open && setArchiveId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Archive this promotion?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the promotion and 
-              remove all candidates and historical data associated with it from our servers.
+              The promotion will move to the archived list. Candidate data is kept in the database and will reappear when you restore the promotion.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90" 
-              onClick={() => {
-                if (deleteId) {
-                  deletePromotion(deleteId);
-                  setDeleteId(null);
-                  toast.success("Promotion permanently deleted");
+            <AlertDialogCancel className="cursor-pointer" disabled={actionLoading === "archive"}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="cursor-pointer"
+              disabled={actionLoading === "archive"}
+              onClick={async () => {
+                if (!archiveId) return;
+                setActionLoading("archive");
+                try {
+                  await archivePromotion(archiveId);
+                  setArchiveId(null);
+                  toast.success("Promotion archivée");
+                } catch (err) {
+                  showApiError(err, "Échec de l'archivage");
+                } finally {
+                  setActionLoading(null);
                 }
               }}
             >
-              Delete Promotion
+              {actionLoading === "archive" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Archivage…
+                </>
+              ) : (
+                "Archiver"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete (soft) Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this promotion?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The promotion will be removed from the active list and saved in archived promotions. Candidate data is not removed — use Restore to bring the promotion and its candidates back.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer" disabled={actionLoading === "delete"}>
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionLoading === "delete"}
+              onClick={async () => {
+                if (!deleteId) return;
+                setActionLoading("delete");
+                try {
+                  await deletePromotion(deleteId);
+                  setDeleteId(null);
+                  toast.success("Promotion supprimée — restauration possible depuis Archivées");
+                } catch (err) {
+                  showApiError(err, "Échec de la suppression");
+                } finally {
+                  setActionLoading(null);
+                }
+              }}
+            >
+              {actionLoading === "delete" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Suppression…
+                </>
+              ) : (
+                "Supprimer"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

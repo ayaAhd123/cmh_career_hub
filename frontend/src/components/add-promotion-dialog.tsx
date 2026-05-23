@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -15,13 +14,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { calcEndDate, formatDate } from "@/lib/calc";
 import { toast } from "sonner";
+import { showApiError } from "@/lib/api-error";
+import { Loader2 } from "lucide-react";
 
 export function AddPromotionDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const add = useStore((s) => s.addPromotion);
-  const nav = useNavigate();
 
   const [loading, setLoading] = useState(false);
 
@@ -30,14 +30,12 @@ export function AddPromotionDialog() {
     setLoading(true);
     try {
       const p = await add({ name: name.trim(), startDate });
-      // Ensure state update propagates
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      toast.success(`Promotion ${p.id} created`);
+      toast.success(`Promotion ${p.id} créée — ajoutez des candidats quand vous voulez.`);
       setOpen(false);
       setName("");
-      nav({ to: "/promotions/$id", params: { id: p.id } });
-    } catch (e) {
-      toast.error((e as Error).message || "Failed to create promotion");
+      setStartDate(new Date().toISOString().slice(0, 10));
+    } catch (err) {
+      showApiError(err, "Impossible de créer la promotion");
     } finally {
       setLoading(false);
     }
@@ -63,13 +61,21 @@ export function AddPromotionDialog() {
             <Label>Start Date</Label>
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             <p className="text-xs text-muted-foreground mt-1">
-              Auto end date: {formatDate(calcEndDate(startDate))} (5 weeks · 25 working days)
+              End date: {formatDate(calcEndDate(startDate))} (5 weeks · 25 working days)
             </p>
           </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={submit}>Create</Button>
+          <Button onClick={submit} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Création…
+              </>
+            ) : (
+              "Créer"
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

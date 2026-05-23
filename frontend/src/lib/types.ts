@@ -73,6 +73,7 @@ export interface Promotion {
   status: PromotionStatus;
   archived: boolean;
   createdAt: string;
+  dbId?: number;
 }
 
 export const emptySkills = (): Skills => ({

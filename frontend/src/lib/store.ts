@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import type {
   Candidate,
   ModuleScore,
@@ -26,17 +25,31 @@ const apiFetch = async (path: string, options: RequestInit = {}) => {
     },
   });
   if (res.status === 204) return null;
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || JSON.stringify(data.errors) || `Request failed ${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error("Session expirée — reconnectez-vous pour enregistrer en base.");
+    }
+    throw new Error(
+      (data as { message?: string }).message ||
+        JSON.stringify((data as { errors?: unknown }).errors) ||
+        `Request failed ${res.status}`,
+    );
+  }
   return data;
 };
+
+const promotionDbId = (promo: Promotion) => promo.dbId ?? promo.id;
 
 /* ─── Types ─── */
 interface State {
   promotions: Promotion[];
+  archivedPromotions: Promotion[];
   candidates: Candidate[];
-  seeded: boolean;
   promotionsLoaded: boolean;
+  promotionsLoading: boolean;
+  archivedPromotionsLoaded: boolean;
+  archivedPromotionsLoading: boolean;
 
   globalTimeRange: TimeRange;
   globalCustomStart: string;
@@ -44,17 +57,17 @@ interface State {
   setGlobalTimeRange: (range: TimeRange) => void;
   setGlobalCustomStart: (date: string) => void;
   setGlobalCustomEnd: (date: string) => void;
-  clearGlobalFilters: () => void;
+  clearUiFilters: () => void;
 
-  // Promotions — now async (call API)
-  loadPromotions: () => Promise<void>;
+  loadPromotions: (opts?: { search?: string }) => Promise<void>;
+  loadArchivedPromotions: (opts?: { search?: string }) => Promise<void>;
   addPromotion: (data: { name: string; startDate: string }) => Promise<Promotion>;
-  updatePromotion: (id: string, patch: Partial<Promotion>) => Promise<void>;
+  updatePromotion: (id: string, patch: Partial<Promotion>) => Promise<Promotion>;
   archivePromotion: (id: string) => Promise<void>;
+  restorePromotion: (id: string) => Promise<void>;
   deletePromotion: (id: string) => Promise<void>;
   permanentDeletePromotion: (id: string) => Promise<void>;
 
-  // Candidates — still local for now
   addCandidate: (
     data: Omit<
       Candidate,
@@ -69,7 +82,7 @@ interface State {
   restoreCandidate: (id: string) => void;
   hardDeleteCandidate: (id: string) => void;
 
-  resetSeed: () => void;
+  clearUiFilters: () => void;
 }
 
 const newCandidate = (
@@ -85,210 +98,248 @@ const newCandidate = (
   history: [{ date: new Date().toISOString(), event: "Candidate recruited" }],
 });
 
-export const useStore = create<State>()(
-  persist(
-    (set, get) => ({
-      promotions: [],
-      candidates: [],
-      seeded: false,
-      promotionsLoaded: false,
+const findPromotion = (get: () => State, id: string) =>
+  get().promotions.find((p) => p.id === id) ??
+  get().archivedPromotions.find((p) => p.id === id);
 
+export const useStore = create<State>()((set, get) => ({
+  promotions: [],
+  archivedPromotions: [],
+  candidates: [],
+  promotionsLoaded: false,
+  promotionsLoading: false,
+  archivedPromotionsLoaded: false,
+  archivedPromotionsLoading: false,
+
+  globalTimeRange: "all",
+  globalCustomStart: "",
+  globalCustomEnd: "",
+
+  setGlobalTimeRange: (range) => set({ globalTimeRange: range }),
+  setGlobalCustomStart: (date) => set({ globalCustomStart: date }),
+  setGlobalCustomEnd: (date) => set({ globalCustomEnd: date }),
+  clearGlobalFilters: () =>
+    set({ globalTimeRange: "all", globalCustomStart: "", globalCustomEnd: "" }),
+
+  loadPromotions: async (opts) => {
+    const search = opts?.search?.trim() ?? "";
+    const params = search ? `?search=${encodeURIComponent(search)}` : "";
+    set({ promotionsLoading: true });
+    try {
+      const data = await apiFetch(`/promotions${params}`);
+      set({ promotions: data, promotionsLoaded: true });
+    } catch (err) {
+      console.error("Failed to load promotions", err);
+      throw err;
+    } finally {
+      set({ promotionsLoading: false });
+    }
+  },
+
+  loadArchivedPromotions: async (opts) => {
+    const search = opts?.search?.trim() ?? "";
+    const params = search ? `?search=${encodeURIComponent(search)}` : "";
+    set({ archivedPromotionsLoading: true });
+    try {
+      const data = await apiFetch(`/promotions/archived/list${params}`);
+      set({ archivedPromotions: data, archivedPromotionsLoaded: true });
+    } catch (err) {
+      console.error("Failed to load archived promotions", err);
+      throw err;
+    } finally {
+      set({ archivedPromotionsLoading: false });
+    }
+  },
+
+  addPromotion: async ({ name, startDate }) => {
+    const endDate = calcEndDate(startDate);
+    const p: Promotion = await apiFetch("/promotions", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        start_date: startDate,
+        end_date: endDate,
+        status: "Active",
+      }),
+    });
+    set((s) => ({ promotions: [p, ...s.promotions] }));
+    return p;
+  },
+
+  updatePromotion: async (id, patch) => {
+    const promo = findPromotion(get, id);
+    if (!promo) throw new Error("Promotion not found");
+
+    const body: Record<string, string> = {};
+    if (patch.name) body.name = patch.name;
+    if (patch.startDate) {
+      body.start_date = patch.startDate;
+      body.end_date = calcEndDate(patch.startDate);
+    }
+    if (patch.status) body.status = patch.status;
+
+    const updated: Promotion = await apiFetch(`/promotions/${promotionDbId(promo)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+
+    set((s) => ({
+      promotions: s.promotions.map((p) => (p.id === id ? updated : p)),
+      archivedPromotions: s.archivedPromotions.map((p) => (p.id === id ? updated : p)),
+    }));
+    return updated;
+  },
+
+  archivePromotion: async (id) => {
+    const promo = findPromotion(get, id);
+    if (!promo) return;
+
+    await apiFetch(`/promotions/${promotionDbId(promo)}/archive`, {
+      method: "POST",
+      body: JSON.stringify({ confirm_one: true, confirm_two: true }),
+    });
+
+    set((s) => ({
+      promotions: s.promotions.filter((p) => p.id !== id),
+    }));
+    await get().loadArchivedPromotions();
+  },
+
+  restorePromotion: async (id) => {
+    const promo = findPromotion(get, id);
+    if (!promo) return;
+
+    const restored: Promotion = await apiFetch(`/promotions/${promotionDbId(promo)}/restore`, {
+      method: "POST",
+    });
+
+    set((s) => ({
+      archivedPromotions: s.archivedPromotions.filter((p) => p.id !== id),
+      promotions: [restored, ...s.promotions.filter((p) => p.id !== id)],
+    }));
+  },
+
+  deletePromotion: async (id) => {
+    const promo = findPromotion(get, id);
+    if (!promo) return;
+
+    await apiFetch(`/promotions/${promotionDbId(promo)}`, { method: "DELETE" });
+
+    set((s) => ({
+      promotions: s.promotions.filter((p) => p.id !== id),
+    }));
+    await get().loadArchivedPromotions();
+  },
+
+  permanentDeletePromotion: async (id) => {
+    const promo = findPromotion(get, id);
+    if (!promo) return;
+
+    await apiFetch(`/promotions/${promotionDbId(promo)}/force-delete`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirm_one: true, confirm_two: true }),
+    });
+
+    set((s) => ({
+      archivedPromotions: s.archivedPromotions.filter((p) => p.id !== id),
+      candidates: s.candidates.filter((c) => c.promotionId !== id),
+    }));
+  },
+
+  addCandidate: (data) => {
+    const exists = get().candidates.some(
+      (c) =>
+        c.email !== "Not provided" &&
+        c.email.toLowerCase() === data.email.toLowerCase() &&
+        !c.archived,
+    );
+    if (exists) return { ok: false, error: "Email already exists" };
+    const c = newCandidate(data);
+    set((s) => ({ candidates: [...s.candidates, c] }));
+    return { ok: true };
+  },
+
+  updateCandidate: (id, patch) =>
+    set((s) => ({
+      candidates: s.candidates.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    })),
+
+  setSkills: (id, skills) =>
+    set((s) => ({
+      candidates: s.candidates.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              skills,
+              history: [...c.history, { date: new Date().toISOString(), event: "Skills updated" }],
+            }
+          : c,
+      ),
+    })),
+
+  updateModuleScore: (id, moduleId, score) =>
+    set((s) => ({
+      candidates: s.candidates.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              modules: c.modules.map((m: ModuleScore) =>
+                m.id === moduleId ? { ...m, score } : m,
+              ),
+            }
+          : c,
+      ),
+    })),
+
+  changeStatus: (id, status) =>
+    set((s) => ({
+      candidates: s.candidates.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              status,
+              statusChangedAt: new Date().toISOString(),
+              history: [
+                ...c.history,
+                { date: new Date().toISOString(), event: `Status changed to ${status}` },
+              ],
+            }
+          : c,
+      ),
+    })),
+
+  archiveCandidate: (id) =>
+    set((s) => ({
+      candidates: s.candidates.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              archived: true,
+              archivedAt: new Date().toISOString(),
+              status: "Archived",
+              history: [
+                ...c.history,
+                { date: new Date().toISOString(), event: "Candidate archived" },
+              ],
+            }
+          : c,
+      ),
+    })),
+
+  restoreCandidate: (id) =>
+    set((s) => ({
+      candidates: s.candidates.map((c) =>
+        c.id === id ? { ...c, archived: false, status: "Active" } : c,
+      ),
+    })),
+
+  hardDeleteCandidate: (id) =>
+    set((s) => ({ candidates: s.candidates.filter((c) => c.id !== id) })),
+
+  clearUiFilters: () =>
+    set({
       globalTimeRange: "all",
       globalCustomStart: "",
       globalCustomEnd: "",
-
-      setGlobalTimeRange: (range) => set({ globalTimeRange: range }),
-      setGlobalCustomStart: (date) => set({ globalCustomStart: date }),
-      setGlobalCustomEnd: (date) => set({ globalCustomEnd: date }),
-      clearGlobalFilters: () => set({ globalTimeRange: "all", globalCustomStart: "", globalCustomEnd: "" }),
-
-      /* ─── Promotions (API‑backed) ─── */
-      loadPromotions: async () => {
-        try {
-          const data = await apiFetch("/promotions");
-          set({ promotions: data, promotionsLoaded: true });
-        } catch (err) {
-          console.error("Failed to load promotions", err);
-        }
-      },
-
-      addPromotion: async ({ name, startDate }) => {
-        const endDate = calcEndDate(startDate);
-        const p: Promotion = await apiFetch("/promotions", {
-          method: "POST",
-          body: JSON.stringify({
-            name,
-            start_date: startDate,
-            end_date: endDate,
-            status: "Active",
-          }),
-        });
-        set((s) => ({ promotions: [...s.promotions, p] }));
-        return p;
-      },
-
-      updatePromotion: async (id, patch) => {
-        // Find the DB id for this promotion
-        const promo = get().promotions.find((p) => p.id === id);
-        if (!promo) return;
-        const dbId = (promo as any).dbId || id;
-
-        const body: Record<string, string> = {};
-        if (patch.name) body.name = patch.name;
-        if (patch.startDate) {
-          body.start_date = patch.startDate;
-          body.end_date = calcEndDate(patch.startDate);
-        }
-        if (patch.status) body.status = patch.status;
-
-        const updated: Promotion = await apiFetch(`/promotions/${dbId}`, {
-          method: "PUT",
-          body: JSON.stringify(body),
-        });
-        set((s) => ({
-          promotions: s.promotions.map((p) => (p.id === id ? updated : p)),
-        }));
-      },
-
-      archivePromotion: async (id) => {
-        const promo = get().promotions.find((p) => p.id === id);
-        if (!promo) return;
-        const dbId = (promo as any).dbId || id;
-
-        await apiFetch(`/promotions/${dbId}/archive`, {
-          method: "POST",
-          body: JSON.stringify({ confirm_one: true, confirm_two: true }),
-        });
-        
-        // Optimistically update status to Archived
-        set((s) => ({
-          promotions: s.promotions.map((p) => (p.id === id ? { ...p, status: "Archived", archived: true } : p)),
-        }));
-      },
-
-      deletePromotion: async (id) => {
-        const promo = get().promotions.find((p) => p.id === id);
-        if (!promo) return;
-        const dbId = (promo as any).dbId || id;
-
-        await apiFetch(`/promotions/${dbId}`, { method: "DELETE" });
-        set((s) => ({
-          promotions: s.promotions.filter((p) => p.id !== id),
-          candidates: s.candidates.filter((c) => c.promotionId !== id),
-        }));
-      },
-
-      permanentDeletePromotion: async (id) => {
-        const promo = get().promotions.find((p) => p.id === id);
-        if (!promo) return;
-        const dbId = (promo as any).dbId || id;
-
-        await apiFetch(`/promotions/${dbId}/force-delete`, {
-          method: "DELETE",
-          body: JSON.stringify({ confirm_one: true, confirm_two: true }),
-        });
-        set((s) => ({
-          promotions: s.promotions.filter((p) => p.id !== id),
-          candidates: s.candidates.filter((c) => c.promotionId !== id),
-        }));
-      },
-
-      /* ─── Candidates (still local) ─── */
-      addCandidate: (data) => {
-        const exists = get().candidates.some(
-          (c) => c.email !== "Not provided" && c.email.toLowerCase() === data.email.toLowerCase() && !c.archived,
-        );
-        if (exists) return { ok: false, error: "Email already exists" };
-        const c = newCandidate(data);
-        set((s) => ({ candidates: [...s.candidates, c] }));
-        return { ok: true };
-      },
-
-      updateCandidate: (id, patch) =>
-        set((s) => ({
-          candidates: s.candidates.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-        })),
-
-      setSkills: (id, skills) =>
-        set((s) => ({
-          candidates: s.candidates.map((c) =>
-            c.id === id
-              ? { ...c, skills, history: [...c.history, { date: new Date().toISOString(), event: "Skills updated" }] }
-              : c,
-          ),
-        })),
-
-      updateModuleScore: (id, moduleId, score) =>
-        set((s) => ({
-          candidates: s.candidates.map((c) =>
-            c.id === id
-              ? {
-                  ...c,
-                  modules: c.modules.map((m: ModuleScore) =>
-                    m.id === moduleId ? { ...m, score } : m,
-                  ),
-                }
-              : c,
-          ),
-        })),
-
-      changeStatus: (id, status) =>
-        set((s) => ({
-          candidates: s.candidates.map((c) =>
-            c.id === id
-              ? {
-                  ...c,
-                  status,
-                  statusChangedAt: new Date().toISOString(),
-                  history: [
-                    ...c.history,
-                    { date: new Date().toISOString(), event: `Status changed to ${status}` },
-                  ],
-                }
-              : c,
-          ),
-        })),
-
-      archiveCandidate: (id) =>
-        set((s) => ({
-          candidates: s.candidates.map((c) =>
-            c.id === id
-              ? {
-                  ...c,
-                  archived: true,
-                  archivedAt: new Date().toISOString(),
-                  status: "Archived",
-                  history: [
-                    ...c.history,
-                    { date: new Date().toISOString(), event: "Candidate archived" },
-                  ],
-                }
-              : c,
-          ),
-        })),
-
-      restoreCandidate: (id) =>
-        set((s) => ({
-          candidates: s.candidates.map((c) =>
-            c.id === id ? { ...c, archived: false, status: "Active" } : c,
-          ),
-        })),
-
-      hardDeleteCandidate: (id) =>
-        set((s) => ({ candidates: s.candidates.filter((c) => c.id !== id) })),
-
-      resetSeed: () => set({ promotions: [], candidates: [], seeded: false, promotionsLoaded: false }),
     }),
-    {
-      name: "careerhub-store",
-      partialize: (state) => ({
-        // Only persist candidates & UI filters locally — promotions come from DB
-        candidates: state.candidates,
-        seeded: state.seeded,
-        globalTimeRange: state.globalTimeRange,
-        globalCustomStart: state.globalCustomStart,
-        globalCustomEnd: state.globalCustomEnd,
-      }),
-    },
-  ),
-);
+}));
