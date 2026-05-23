@@ -532,7 +532,7 @@ function PromotionDetail() {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>Export promotion</DropdownMenuLabel>
                   <div className="px-2 pb-2">
-                    <div className="text-xs text-muted-foreground mb-1.5">Language / Langue</div>
+                    <div className="text-xs text-muted-foreground mb-1.5">Language</div>
                     <div className="flex gap-1">
                       <Button
                         type="button"
