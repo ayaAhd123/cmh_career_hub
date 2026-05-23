@@ -13,7 +13,10 @@ export const skillsAvg = (s: Skills): number =>
 export const testsAvg = (modules: ModuleScore[]): number =>
   modules.length === 0 ? 0 : modules.reduce((a, m) => a + (m.score || 0), 0) / modules.length;
 
-export const overallAverage = (c: Candidate): number => {
+export const overallAverage = (c: Candidate & { avgScore?: number }): number => {
+  if (typeof c.avgScore === "number") {
+    return c.avgScore;
+  }
   const sa = skillsAvg(c.skills); // 0-5
   const ta = testsAvg(c.modules); // 0-20
   return Math.round(((sa + (ta / 4)) / 2) * 100) / 100;

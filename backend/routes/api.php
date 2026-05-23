@@ -29,6 +29,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('candidates', CandidateController::class)->only(['index', 'update', 'destroy']);
 
         // Custom Promotion endpoints
+        Route::get('promotions/{promotion}/stats', [PromotionController::class, 'stats']);
         Route::get('promotions/archived/list', [PromotionController::class, 'archived']);
         Route::post('promotions/{promotion}/archive', [PromotionController::class, 'archive']);
         Route::post('promotions/{promotion}/restore', [PromotionController::class, 'restore'])->withTrashed();

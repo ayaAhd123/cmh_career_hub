@@ -19,7 +19,15 @@ class AppServiceProvider extends ServiceProvider
     {
         Schema::defaultStringLength(191);
 
-        Route::bind('promotion', fn (string $value) => Promotion::withTrashed()->findOrFail($value));
+        Route::bind('promotion', function (string $value) {
+            $query = Promotion::withTrashed();
+
+            if (is_numeric($value)) {
+                return $query->where('id', (int) $value)->firstOrFail();
+            }
+
+            return $query->where('promo_code', $value)->firstOrFail();
+        });
     }
 
 }

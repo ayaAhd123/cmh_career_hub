@@ -4,12 +4,17 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Promotion;
+use App\Services\PromotionStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 
 class PromotionController extends Controller
 {
+    public function __construct(
+        private readonly PromotionStatsService $statsService
+    ) {}
+
     /**
      * Display a listing of the promotions.
      */
@@ -81,6 +86,11 @@ class PromotionController extends Controller
     public function show(Promotion $promotion)
     {
         return response()->json($this->formatPromotion($promotion));
+    }
+
+    public function stats(Promotion $promotion)
+    {
+        return response()->json($this->statsService->getStats($promotion));
     }
 
     /**

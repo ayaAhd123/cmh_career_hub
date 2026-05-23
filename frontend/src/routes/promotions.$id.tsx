@@ -1,5 +1,5 @@
-import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,16 @@ import { Input } from "@/components/ui/input";
 import { CategoryBadge, StatusBadge } from "@/components/badges";
 import { KpiCard } from "@/components/kpi-card";
 import {
-  categoryFor,
   formatDate,
-  overallAverage,
-  passRate,
-  promotionProgress,
   promotionStatus,
 } from "@/lib/calc";
+import {
+  fetchCandidates,
+  deleteCandidateApi,
+  updateCandidateApi,
+  type CandidateListItem,
+} from "@/lib/candidate-api";
+import { fetchPromotionStats, type PromotionStats } from "@/lib/promotion-api";
 import {
   ArrowLeft,
   Users,
@@ -26,8 +29,6 @@ import {
   ArrowRight,
   Search,
   X,
-  Mars,
-  Venus,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -60,6 +61,24 @@ import { ReminderContextBanner } from "@/components/reminder-context-banner";
 import {
   exportPromotionPDF, exportPromotionExcel, exportPromotionHTML,
 } from "@/lib/exports";
+import type { Candidate } from "@/lib/types";
+
+function candidatesForExport(items: CandidateListItem[]): Candidate[] {
+  const emptySkills = {
+    discipline: { discipline: 0, motivation: 0, communication: 0, listening: 0 },
+    work: { initiative: 0, analysis: 0, organization: 0, intellectual: 0, pace: 0, speed: 0 },
+  };
+
+  return items.map((c) => ({
+    ...c,
+    age: c.age ?? "Not provided",
+    diplomaAverage: c.diplomaAverage ?? "Not provided",
+    avgScore: c.avgScore,
+    skills: emptySkills,
+    modules: [],
+    history: [],
+  })) as Candidate[];
+}
 
 export const Route = createFileRoute("/promotions/$id")({
   head: ({ params }) => ({
@@ -137,14 +156,9 @@ function PromotionDetail() {
       void Promise.all([loadPromotions(), loadArchivedPromotions()]);
     }
   }, [id, promotion, loadPromotions, loadArchivedPromotions]);
-  const allCandidates = useStore((s) => s.candidates);
-  const candidates = useMemo(
-    () => allCandidates.filter((c) => c.promotionId === id && !c.archived),
-    [allCandidates, id],
-  );
+
   const archive = useStore((s) => s.archivePromotion);
   const addCandidate = useStore((s) => s.addCandidate);
-  const hardDeleteCandidate = useStore((s) => s.hardDeleteCandidate);
   const nav = useNavigate();
   const [activeTab, setActiveTab] = useState(tabFromSearch ?? "candidates");
   const [search, setSearch] = useState("");
@@ -154,9 +168,65 @@ function PromotionDetail() {
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [confirmOne, setConfirmOne] = useState(false);
   const [confirmTwo, setConfirmTwo] = useState(false);
+  const [stats, setStats] = useState<PromotionStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [candidates, setCandidates] = useState<CandidateListItem[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editingCandidate = candidates.find((c) => c.id === editingCandidateId) ?? null;
+
+  const apiFilters = useMemo(
+    () => ({
+      promotion_id: id,
+      q: search.trim() || undefined,
+      category: filterCat === "all" ? undefined : filterCat,
+      status: filterStatus === "all" ? undefined : filterStatus,
+      sort: "avg_desc",
+    }),
+    [id, search, filterCat, filterStatus],
+  );
+
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const data = await fetchPromotionStats(id);
+      setStats(data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load promotion statistics");
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [id]);
+
+  const loadCandidates = useCallback(async () => {
+    setCandidatesLoading(true);
+    try {
+      const response = await fetchCandidates(apiFilters);
+      setCandidates(response.data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load candidates");
+    } finally {
+      setCandidatesLoading(false);
+    }
+  }, [apiFilters]);
+
+  const refreshData = useCallback(async () => {
+    await Promise.all([loadStats(), loadCandidates()]);
+  }, [loadStats, loadCandidates]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadCandidates();
+    }, search ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [loadCandidates, search]);
 
   useEffect(() => {
     if (tabFromSearch) setActiveTab(tabFromSearch);
@@ -293,109 +363,31 @@ function PromotionDetail() {
     reader.readAsBinaryString(file);
   };
 
-  const progress = promotion ? promotionProgress(promotion) : 0;
+  const progress = stats?.progress ?? { workingDone: 0, totalWorking: 25, pct: 0 };
+  const categoryDist = stats?.categoryDistribution ?? [];
+  const scoreDist = stats?.scoreDistribution ?? [];
+  const top3 = stats?.topPerformers ?? [];
+  const genderDist = stats?.demographics.gender ?? [];
+  const educationDist = stats?.demographics.education ?? [];
+  const ageDist = stats?.demographics.age ?? [];
+  const kpis = stats?.kpis ?? { totalCandidates: 0, passRate: 0, avgScore: 0, atRisk: 0 };
 
-  const categoryDist = useMemo(() => {
-    const counts = { Excellent: 0, Good: 0, Passable: 0, Critical: 0 };
-    candidates.forEach((c) => {
-      counts[categoryFor(overallAverage(c))]++;
-    });
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [candidates]);
+  const handleUpdate = async (candidateId: string, data: Parameters<typeof updateCandidateApi>[1]) => {
+    await updateCandidateApi(candidateId, data);
+    await refreshData();
+  };
 
-  const scoreDist = useMemo(() => {
-    const ranges = [
-      { name: "0-1", min: 0, max: 1 },
-      { name: "1-2", min: 1, max: 2 },
-      { name: "2-3", min: 2, max: 3 },
-      { name: "3-4", min: 3, max: 4 },
-      { name: "4-5", min: 4, max: 5.01 },
-    ];
-    return ranges.map((r) => ({
-      name: r.name,
-      count: candidates.filter((c) => {
-        const a = overallAverage(c);
-        return a >= r.min && a < r.max;
-      }).length,
-    }));
-  }, [candidates]);
-
-  const top3 = [...candidates]
-    .sort((a, b) => overallAverage(b) - overallAverage(a))
-    .slice(0, 3);
-
-  const filtered = candidates.filter((c) => {
-    const a = overallAverage(c);
-    const cat = categoryFor(a);
-    const q = search.toLowerCase();
-    const match =
-      !q ||
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
-      c.email.toLowerCase().includes(q);
-    const cm = filterCat === "all" || cat === filterCat;
-    const sm = filterStatus === "all" || c.status === filterStatus;
-    return match && cm && sm;
-  }).sort((a, b) => overallAverage(b) - overallAverage(a));
-
-  const genderDist = useMemo(() => {
-    const counts: Record<string, number> = { Homme: 0, Femme: 0 };
-    const totals: Record<string, number> = { Homme: 0, Femme: 0 };
-    candidates.forEach((c) => {
-      counts[c.gender] = (counts[c.gender] || 0) + 1;
-      totals[c.gender] = (totals[c.gender] || 0) + overallAverage(c);
-    });
-    return Object.keys(counts).map(k => ({
-      name: k,
-      value: counts[k as keyof typeof counts],
-      avg: counts[k as keyof typeof counts] ? Number((totals[k as keyof typeof totals] / counts[k as keyof typeof counts]).toFixed(2)) : 0
-    })).filter(d => counts[d.name as keyof typeof counts] > 0);
-  }, [candidates]);
-
-  const educationDist = useMemo(() => {
-    const counts: Record<string, number> = {};
-    const totals: Record<string, number> = {};
-    candidates.forEach((c) => {
-      counts[c.educationLevel] = (counts[c.educationLevel] || 0) + 1;
-      totals[c.educationLevel] = (totals[c.educationLevel] || 0) + overallAverage(c);
-    });
-    return Object.keys(counts).map(k => ({
-      name: k,
-      value: counts[k],
-      avg: counts[k] ? Number((totals[k] / counts[k]).toFixed(2)) : 0
-    }));
-  }, [candidates]);
-
-  const ageDist = useMemo(() => {
-    const counts: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0, "Not provided": 0 };
-    const totals: Record<string, number> = { "19-25": 0, "26-30": 0, "31-40": 0, "41+": 0, "Not provided": 0 };
-    candidates.forEach((c) => {
-      let bucket = "Not provided";
-      if (typeof c.age === "number") {
-        if (c.age >= 19 && c.age <= 25) bucket = "19-25";
-        else if (c.age >= 26 && c.age <= 30) bucket = "26-30";
-        else if (c.age >= 31 && c.age <= 40) bucket = "31-40";
-        else bucket = "41+";
-      }
-      
-      counts[bucket]++;
-      totals[bucket] += overallAverage(c);
-    });
-    return Object.keys(counts).map(k => ({
-      name: k,
-      value: counts[k],
-      avg: counts[k] ? Number((totals[k] / counts[k]).toFixed(2)) : 0
-    })).filter(d => counts[d.name] > 0);
-  }, [candidates]);
-
-  const avgScore =
-    candidates.length === 0
-      ? 0
-      : candidates.reduce((a, c) => a + overallAverage(c), 0) / candidates.length;
-
-  const atRisk = candidates.filter((c) => {
-    const cat = categoryFor(overallAverage(c));
-    return cat === "Passable" || cat === "Critical";
-  }).length;
+  const handleDelete = async (candidate: CandidateListItem) => {
+    if (!confirm(`Delete candidate ${candidate.firstName} ${candidate.lastName}?`)) return;
+    try {
+      await deleteCandidateApi(candidate.id);
+      toast.success("Candidate deleted");
+      await refreshData();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to delete candidate");
+    }
+  };
 
   if (!promotion) {
     return (
@@ -438,9 +430,9 @@ function PromotionDetail() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => exportPromotionPDF(promotion, candidates)}>PDF</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportPromotionExcel(promotion, candidates)}>Excel</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportPromotionHTML(promotion, candidates)}>HTML</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportPromotionPDF(promotion, candidatesForExport(candidates))}>PDF</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportPromotionExcel(promotion, candidatesForExport(candidates))}>Excel</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportPromotionHTML(promotion, candidatesForExport(candidates))}>HTML</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <Dialog open={archiveDialogOpen} onOpenChange={(open) => {
@@ -514,22 +506,22 @@ function PromotionDetail() {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total Candidates" value={candidates.length} icon={Users} />
-        <KpiCard label="Pass Rate" value={`${passRate(candidates)}%`} icon={TrendingUp} tone="success" />
-        <KpiCard label="Average Score" value={avgScore.toFixed(2)} icon={Star} hint="/ 5" />
-        <KpiCard label="At Risk" value={atRisk} icon={AlertTriangle} tone="warning" />
+        <KpiCard label="Total Candidates" value={statsLoading ? "…" : kpis.totalCandidates} icon={Users} />
+        <KpiCard label="Pass Rate" value={statsLoading ? "…" : `${kpis.passRate}%`} icon={TrendingUp} tone="success" />
+        <KpiCard label="Average Score" value={statsLoading ? "…" : kpis.avgScore.toFixed(2)} icon={Star} hint="/ 5" />
+        <KpiCard label="At Risk" value={statsLoading ? "…" : kpis.atRisk} icon={AlertTriangle} tone="warning" />
       </div>
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-lg">Top 3 Performers</CardTitle></CardHeader>
         <CardContent>
-          {top3.length === 0 ? (
+          {statsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading performers…</p>
+          ) : top3.length === 0 ? (
             <p className="text-sm text-muted-foreground">No candidates yet.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-3">
-              {top3.map((c, idx) => {
-                const a = overallAverage(c);
-                return (
+              {top3.map((c, idx) => (
                   <Link
                     key={c.id}
                     to="/candidates/$id"
@@ -541,12 +533,11 @@ function PromotionDetail() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{c.firstName} {c.lastName}</p>
-                      <p className="text-xs text-muted-foreground">{a.toFixed(2)}/5</p>
+                      <p className="text-xs text-muted-foreground">{c.avgScore.toFixed(2)}/5</p>
                     </div>
-                    <CategoryBadge category={categoryFor(a)} />
+                    <CategoryBadge category={c.category} />
                   </Link>
-                );
-              })}
+              ))}
             </div>
           )}
         </CardContent>
@@ -674,7 +665,7 @@ function PromotionDetail() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <CardTitle>Candidates ({filtered.length})</CardTitle>
+                <CardTitle>Candidates ({candidatesLoading ? "…" : candidates.length})</CardTitle>
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative w-56">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -748,9 +739,9 @@ function PromotionDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((c) => {
-                      const a = overallAverage(c);
-                      return (
+                    {candidatesLoading ? (
+                      <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading candidates…</td></tr>
+                    ) : candidates.map((c) => (
                         <tr
                           key={c.id}
                           className="border-b hover:bg-muted/30 cursor-pointer"
@@ -762,8 +753,8 @@ function PromotionDetail() {
                           </td>
                           <td className="py-2 px-3 text-muted-foreground text-xs">{c.email}</td>
                           <td className="py-2 px-3 text-xs">{c.educationLevel}</td>
-                          <td className="py-2 px-3 font-semibold">{a.toFixed(2)}</td>
-                          <td className="py-2 px-3"><CategoryBadge category={categoryFor(a)} /></td>
+                          <td className="py-2 px-3 font-semibold">{c.avgScore.toFixed(2)}</td>
+                          <td className="py-2 px-3"><CategoryBadge category={c.category} /></td>
                           <td className="py-2 px-3"><StatusBadge status={c.status} /></td>
                           <td className="py-2 px-3 flex items-center gap-2">
                             <Button
@@ -783,9 +774,7 @@ function PromotionDetail() {
                               aria-label="Delete candidate"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                if (confirm(`Delete candidate ${c.firstName} ${c.lastName}?`)) {
-                                  hardDeleteCandidate(c.id);
-                                }
+                                void handleDelete(c);
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -797,9 +786,8 @@ function PromotionDetail() {
                             </Button>
                           </td>
                         </tr>
-                      );
-                    })}
-                    {filtered.length === 0 && (
+                    ))}
+                    {!candidatesLoading && candidates.length === 0 && (
                       <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No candidates found.</td></tr>
                     )}
                   </tbody>
@@ -812,6 +800,7 @@ function PromotionDetail() {
               onOpenChange={(open) => {
                 if (!open) setEditingCandidateId(null);
               }}
+              onSave={handleUpdate}
             />
           </Card>
         </TabsContent>
