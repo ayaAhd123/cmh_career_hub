@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/badges";
-import { formatDate, overallAverage, passRate, promotionProgress, promotionStatus } from "@/lib/calc";
+import { formatDate, overallAverage, passRate, promotionProgress, promotionStatus, isWithinCustomRange } from "@/lib/calc";
 import { ArrowRight, Search, Inbox, SlidersHorizontal, Calendar, Check, X, PencilLine, ArrowLeft, MoreVertical, ArchiveRestore, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -124,19 +124,21 @@ function ArchivedPromotions() {
   };
 
   const handleStartChange = (val: string) => {
-    if (val && customEnd && new Date(val) > new Date(customEnd)) {
-      toast.error("Start date must be before the end date");
+    if (val && customEnd && val > customEnd) {
+      toast.error("La date de début doit être avant la date de fin");
       return;
     }
     setCustomStart(val);
+    setTimeRange("custom");
   };
 
   const handleEndChange = (val: string) => {
-    if (val && customStart && new Date(customStart) > new Date(val)) {
-      toast.error("End date must be after the start date");
+    if (val && customStart && customStart > val) {
+      toast.error("La date de fin doit être après la date de début");
       return;
     }
     setCustomEnd(val);
+    setTimeRange("custom");
   };
 
   // Filtered and sorted promotions
@@ -160,8 +162,8 @@ function ArchivedPromotions() {
           case "current_year": if (!isThisYear(d)) return false; break;
           case "last_year": if (!isSameYear(d, subYears(today, 1))) return false; break;
           case "custom": {
-            if (customStart && d < new Date(customStart)) return false;
-            if (customEnd && d > new Date(customEnd)) return false;
+            if (!customStart && !customEnd) break;
+            if (!isWithinCustomRange(p.startDate, customStart, customEnd)) return false;
             break;
           }
         }

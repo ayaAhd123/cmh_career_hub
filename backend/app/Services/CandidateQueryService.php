@@ -110,7 +110,7 @@ class CandidateQueryService
         })->values();
     }
 
-    private function resolvePromotionId(string $promotionRef): ?int
+    public function resolvePromotionId(string $promotionRef): ?int
     {
         if (ctype_digit($promotionRef)) {
             return (int) $promotionRef;

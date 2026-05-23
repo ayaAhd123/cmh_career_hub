@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Promotion;
+use App\Services\PromotionExportService;
+use App\Services\PromotionModuleService;
 use App\Services\PromotionStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -12,7 +14,9 @@ use Illuminate\Support\Facades\Validator;
 class PromotionController extends Controller
 {
     public function __construct(
-        private readonly PromotionStatsService $statsService
+        private readonly PromotionStatsService $statsService,
+        private readonly PromotionExportService $exportService,
+        private readonly PromotionModuleService $moduleService,
     ) {}
 
     /**
@@ -89,6 +93,8 @@ class PromotionController extends Controller
 
         $promotion = Promotion::create($validated);
 
+        $this->moduleService->ensureDefaultModules($promotion);
+
         return response()->json($this->formatPromotion($promotion), 201);
     }
 
@@ -103,6 +109,11 @@ class PromotionController extends Controller
     public function stats(Promotion $promotion)
     {
         return response()->json($this->statsService->getStats($promotion));
+    }
+
+    public function exportData(Promotion $promotion)
+    {
+        return response()->json($this->exportService->exportData($promotion));
     }
 
     /**

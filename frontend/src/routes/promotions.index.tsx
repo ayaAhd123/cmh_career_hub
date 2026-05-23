@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useStore } from "@/lib/store";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { showApiError } from "@/lib/api-error";
@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/badges";
-import { formatDate, overallAverage, passRate, promotionProgress, promotionStatus } from "@/lib/calc";
+import { formatDate, overallAverage, passRate, promotionProgress, promotionStatus, isWithinCustomRange } from "@/lib/calc";
 import { ArrowRight, Search, Inbox, SlidersHorizontal, Calendar, Check, X, PencilLine, ChevronLeft, ChevronRight, ArrowDownUp, ChevronDown, MoreVertical, Archive, Trash2, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -18,8 +18,9 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem,
   DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator,
-  DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger
+  DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   isSameYear, isSameQuarter, isSameMonth, isToday, isYesterday,
@@ -140,6 +141,8 @@ function PromotionsList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [archiveId, setArchiveId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<"archive" | "delete" | null>(null);
+  const [customSubOpen, setCustomSubOpen] = useState(false);
+  const customSubCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timeRange = useStore((s) => s.globalTimeRange);
   const customStart = useStore((s) => s.globalCustomStart);
   const customEnd = useStore((s) => s.globalCustomEnd);
@@ -157,19 +160,34 @@ function PromotionsList() {
   };
 
   const handleStartChange = (val: string) => {
-    if (val && customEnd && new Date(val) > new Date(customEnd)) {
-      toast.error("Start date must be before the end date");
+    if (val && customEnd && val > customEnd) {
+      toast.error("La date de début doit être avant la date de fin");
       return;
     }
     setCustomStart(val);
+    setTimeRange("custom");
   };
 
   const handleEndChange = (val: string) => {
-    if (val && customStart && new Date(customStart) > new Date(val)) {
-      toast.error("End date must be after the start date");
+    if (val && customStart && customStart > val) {
+      toast.error("La date de fin doit être après la date de début");
       return;
     }
     setCustomEnd(val);
+    setTimeRange("custom");
+  };
+
+  const openCustomSub = () => {
+    if (customSubCloseTimer.current) {
+      clearTimeout(customSubCloseTimer.current);
+      customSubCloseTimer.current = null;
+    }
+    setCustomSubOpen(true);
+    setTimeRange("custom");
+  };
+
+  const scheduleCloseCustomSub = () => {
+    customSubCloseTimer.current = setTimeout(() => setCustomSubOpen(false), 200);
   };
 
   const timeRangeLabels: Record<string, string> = {
@@ -201,8 +219,8 @@ function PromotionsList() {
           case "current_year": if (!isThisYear(d)) return false; break;
           case "last_year": if (!isSameYear(d, subYears(today, 1))) return false; break;
           case "custom": {
-            if (customStart && d < new Date(customStart)) return false;
-            if (customEnd && d > new Date(customEnd)) return false;
+            if (!customStart && !customEnd) break;
+            if (!isWithinCustomRange(p.startDate, customStart, customEnd)) return false;
             break;
           }
         }
@@ -291,7 +309,7 @@ function PromotionsList() {
             size="sm" 
             onClick={handleClearFilters} 
             className={`text-muted-foreground hover:text-foreground shrink-0 transition-opacity ${
-              (timeRange !== 'all' || statusFilter !== 'All' || searchQuery !== '') ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              (timeRange !== "all" || statusFilter !== "All" || searchQuery !== "" || customStart !== "" || customEnd !== "") ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           >
             Clear
@@ -308,7 +326,13 @@ function PromotionsList() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[160px]">
-              <DropdownMenuRadioGroup value={timeRange} onValueChange={(v) => setTimeRange(v as any)}>
+              <DropdownMenuRadioGroup
+                value={timeRange === "custom" ? "" : timeRange}
+                onValueChange={(v) => {
+                  setTimeRange(v as typeof timeRange);
+                  setCustomSubOpen(false);
+                }}
+              >
                 <DropdownMenuRadioItem className="cursor-pointer" value="all">All Time</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem className="cursor-pointer" value="today">Today</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem className="cursor-pointer" value="yesterday">Yesterday</DropdownMenuRadioItem>
@@ -319,25 +343,43 @@ function PromotionsList() {
                 <DropdownMenuRadioItem className="cursor-pointer" value="current_year">Current Year</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem className="cursor-pointer" value="last_year">Last Year</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
-              
               <DropdownMenuSeparator />
-              
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="cursor-pointer">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  <span>Custom Range</span>
+              <DropdownMenuSub open={customSubOpen} onOpenChange={setCustomSubOpen}>
+                <DropdownMenuSubTrigger
+                  className={cn("cursor-pointer", timeRange === "custom" && "bg-accent")}
+                  onPointerEnter={openCustomSub}
+                  onPointerLeave={scheduleCloseCustomSub}
+                  onClick={openCustomSub}
+                >
+                  Custom Range
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-80 p-4" alignOffset={-130}>
-                  <div className="flex flex-col gap-4">
-                    <h4 className="font-medium leading-none">Custom Date Range</h4>
-                    <p className="text-sm text-muted-foreground">Select the dates to apply the filter.</p>
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-medium">Start Date</Label>
-                      <Input type="date" value={customStart} onChange={e => { handleStartChange(e.target.value); setTimeRange('custom'); }} />
+                <DropdownMenuSubContent
+                  className="w-72 p-3"
+                  sideOffset={4}
+                  onPointerEnter={openCustomSub}
+                  onPointerLeave={scheduleCloseCustomSub}
+                  onPointerDown={(e) => e.preventDefault()}
+                >
+                  <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="custom-start" className="text-xs text-muted-foreground">Start date</Label>
+                      <Input
+                        id="custom-start"
+                        type="date"
+                        className="h-9 bg-background"
+                        value={customStart}
+                        onChange={(e) => handleStartChange(e.target.value)}
+                      />
                     </div>
-                    <div className="grid gap-2">
-                      <Label className="text-sm font-medium">End Date</Label>
-                      <Input type="date" value={customEnd} onChange={e => { handleEndChange(e.target.value); setTimeRange('custom'); }} />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="custom-end" className="text-xs text-muted-foreground">End date</Label>
+                      <Input
+                        id="custom-end"
+                        type="date"
+                        className="h-9 bg-background"
+                        value={customEnd}
+                        onChange={(e) => handleEndChange(e.target.value)}
+                      />
                     </div>
                   </div>
                 </DropdownMenuSubContent>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "@/lib/store";
+import { createCandidateApi } from "@/lib/candidate-api";
 import {
   Dialog,
   DialogContent,
@@ -33,9 +33,15 @@ const readFileAsDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
+export function AddCandidateDialog({
+  promotionId,
+  onSuccess,
+}: {
+  promotionId: string;
+  onSuccess?: () => void | Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
-  const add = useStore((s) => s.addCandidate);
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState<{
     firstName: string;
@@ -82,18 +88,33 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
     if (form.diplomaAverage === "" || Number(form.diplomaAverage) < 0 || Number(form.diplomaAverage) > 20)
       return toast.error("Diploma average must be 0-20");
 
-    const photoValue = form.photoFile ? await readFileAsDataUrl(form.photoFile) : form.photo;
+    const photoValue = form.photoFile ? await readFileAsDataUrl(form.photoFile) : form.photo || undefined;
 
-    const res = add({
-      ...form,
-      age: Number(form.age),
-      diplomaAverage: Number(form.diplomaAverage),
-      photo: photoValue,
-      promotionId,
-    });
-    if (!res.ok) return toast.error(res.error ?? "Failed");
-    toast.success("Candidate added");
-    setOpen(false);
+    setSubmitting(true);
+    try {
+      await createCandidateApi({
+        promotionId,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        recruitmentDate: form.recruitmentDate,
+        age: Number(form.age),
+        gender: form.gender,
+        educationLevel: form.educationLevel,
+        diplomaName: form.diplomaName.trim(),
+        diplomaAverage: Number(form.diplomaAverage),
+        photo: photoValue,
+      });
+      toast.success("Candidate added");
+      setOpen(false);
+      await onSuccess?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add candidate");
+      return;
+    } finally {
+      setSubmitting(false);
+    }
     setForm({
       firstName: "",
       lastName: "",
@@ -201,7 +222,9 @@ export function AddCandidateDialog({ promotionId }: { promotionId: string }) {
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={submit}>Add</Button>
+          <Button onClick={submit} disabled={submitting}>
+            {submitting ? "Adding..." : "Add"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
