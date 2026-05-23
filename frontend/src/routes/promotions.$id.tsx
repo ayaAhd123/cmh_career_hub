@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -119,20 +119,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 function PromotionDetail() {
   const { id } = Route.useParams();
   const promotion = useStore((s) => s.promotions.find((p) => p.id === id));
-  const loadMissing = async () => {
-    if (!promotion) {
-      try {
-        const p = await fetch(`${API_BASE}/api/v1/promotions/${id}`).then(res => res.json());
-        // Assume API returns same shape as store expects
-        useStore.getState().promotions.push(p);
-      } catch (e) {
-        console.error('Failed to load promotion', e);
-      }
-    }
-  };
+  const loadPromotions = useStore((s) => s.loadPromotions);
+
   useEffect(() => {
-    loadMissing();
-  }, [id]);
+    if (!promotion) {
+      void loadPromotions();
+    }
+  }, [id, promotion, loadPromotions]);
   const allCandidates = useStore((s) => s.candidates);
   const candidates = useMemo(
     () => allCandidates.filter((c) => c.promotionId === id && !c.archived),

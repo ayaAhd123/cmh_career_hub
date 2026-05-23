@@ -109,8 +109,9 @@ function RootComponent() {
   const nav = useNavigate();
 
   useEffect(() => {
-    seedSampleData();
-  }, []);
+    if (!isAuth) return;
+    void seedSampleData().catch(console.error);
+  }, [isAuth]);
 
   useEffect(() => {
     if (!isAuth && path !== "/login") {

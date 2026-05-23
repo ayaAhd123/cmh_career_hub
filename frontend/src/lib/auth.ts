@@ -10,7 +10,7 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   profile: AdminProfile | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (patch: Partial<Pick<AdminProfile, "name" | "email">>) => Promise<void>;
   changePassword: (current: string, next: string) => Promise<{ ok: boolean; error?: string }>;
@@ -31,13 +31,18 @@ export const useAuth = create<AuthState>()(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
           });
-          if (!res.ok) return false;
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            return {
+              ok: false,
+              error: (data as { message?: string }).message || 'Invalid credentials',
+            };
+          }
           set({ token: data.token, isAuthenticated: true, profile: data.user });
-          return true;
+          return { ok: true };
         } catch (err) {
           console.error('Login failed', err);
-          return false;
+          return { ok: false, error: 'Cannot reach the API server' };
         }
       },
       logout: async () => {

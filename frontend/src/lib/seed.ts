@@ -1,4 +1,4 @@
-import { addDays, format, subDays, differenceInYears, parseISO } from "date-fns";
+import { addDays, format, parseISO, subDays } from "date-fns";
 import { useStore } from "./store";
 import type { EducationLevel, Skills } from "./types";
 
@@ -13,7 +13,7 @@ const randF = (min: number, max: number, dec = 1) =>
 
 export const seedSampleData = async () => {
   const s = useStore.getState();
-  
+
   // Force wipe the massive dataset so we can revert to the simple one
   if (s.promotions.length > 4) {
     s.resetSeed();
@@ -22,12 +22,24 @@ export const seedSampleData = async () => {
   }
 
   const today = new Date();
-  
-  // Create 3 simple promotions, including reminder-friendly dates
-  const p1 = await s.addPromotion({ name: "Web Dev Bootcamp 2024", startDate: format(subDays(today, 60), "yyyy-MM-dd") });
-  const p2 = await s.addPromotion({ name: "Data Analysis Q3", startDate: format(subDays(today, 30), "yyyy-MM-dd") });
-  const p3 = await s.addPromotion({ name: "UI/UX Masterclass", startDate: format(addDays(today, 4), "yyyy-MM-dd") });
-  const p4 = await s.addPromotion({ name: "Marketing Sprint", startDate: format(subDays(today, 20), "yyyy-MM-dd") });
+
+  // Create 4 simple promotions, including reminder-friendly dates
+  const p1 = await s.addPromotion({
+    name: "Web Dev Bootcamp 2024",
+    startDate: format(subDays(today, 60), "yyyy-MM-dd"),
+  });
+  const p2 = await s.addPromotion({
+    name: "Data Analysis Q3",
+    startDate: format(subDays(today, 30), "yyyy-MM-dd"),
+  });
+  const p3 = await s.addPromotion({
+    name: "UI/UX Masterclass",
+    startDate: format(addDays(today, 4), "yyyy-MM-dd"),
+  });
+  const p4 = await s.addPromotion({
+    name: "Marketing Sprint",
+    startDate: format(subDays(today, 20), "yyyy-MM-dd"),
+  });
 
   const promos = [
     { id: p1.id, start: p1.startDate, count: 8 },
@@ -56,7 +68,10 @@ export const seedSampleData = async () => {
         lastName: ln,
         email,
         phone: `+212 6${Math.floor(10000000 + Math.random() * 89999999)}`,
-        recruitmentDate: format(subDays(parseISO(promo.start), Math.floor(Math.random() * 20)), "yyyy-MM-dd"),
+        recruitmentDate: format(
+          subDays(parseISO(promo.start), Math.floor(Math.random() * 20)),
+          "yyyy-MM-dd",
+        ),
         educationLevel: rand(educations),
         gender,
         age,
@@ -89,7 +104,7 @@ export const seedSampleData = async () => {
       s.setSkills(c.id, skills);
 
       // Random modules (out of 20 scale, matching new math)
-      const isFuture = new Date(promo.start) > today;
+      const isFuture = parseISO(promo.start) > today;
       if (!isFuture) {
         for (let m = 1; m <= 3; m++) {
           s.updateModuleScore(c.id, m, randF(8, 20));
