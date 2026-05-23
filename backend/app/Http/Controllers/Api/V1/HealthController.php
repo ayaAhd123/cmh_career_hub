@@ -9,6 +9,10 @@ class HealthController extends Controller
 {
     public function index(): JsonResponse
     {
+        if (config('app.env') === 'production') {
+            return response()->json(['status' => 'ok']);
+        }
+
         return response()->json([
             'status' => 'ok',
             'environment' => config('app.env'),

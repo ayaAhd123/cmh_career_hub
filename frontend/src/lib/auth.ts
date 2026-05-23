@@ -101,11 +101,23 @@ export const useAuth = create<AuthState>()(
             },
             body: JSON.stringify({ current, next }),
           });
-          if (res.ok) return { ok: true };
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) {
+            if ((data as { token?: string }).token) {
+              set({ token: (data as { token: string }).token });
+            }
+            return { ok: true };
+          }
+          const errors = (data as { errors?: Record<string, string[]> }).errors;
+          const firstFieldError = errors
+            ? Object.values(errors)[0]?.[0]
+            : undefined;
           return {
             ok: false,
-            error: data.message || data.errors ? JSON.stringify(data.errors) : "Failed",
+            error:
+              firstFieldError ||
+              (data as { message?: string }).message ||
+              "Failed to change password",
           };
         } catch (err) {
           console.error("Change password failed", err);

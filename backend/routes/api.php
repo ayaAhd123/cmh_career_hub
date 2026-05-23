@@ -13,10 +13,12 @@ Route::prefix('v1')->group(function () {
     Route::get('health', [HealthController::class, 'index']);
 
     // Auth
-    Route::post('auth/login', [AuthController::class, 'login']);
+    Route::post('auth/login', [AuthController::class, 'login'])
+        ->middleware('throttle:login');
 
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::post('ai/chat', [AiController::class, 'chat']);
+    Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+        Route::post('ai/chat', [AiController::class, 'chat'])
+            ->middleware('throttle:ai');
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('auth/me', [AuthController::class, 'me']);
         Route::put('auth/profile', [AuthController::class, 'updateProfile']);

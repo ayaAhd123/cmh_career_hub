@@ -9,7 +9,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect } from "react";
+import { useEffect } from "react";
 import appCss from "../styles.css?url";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -18,9 +18,7 @@ import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useAuthHydrated } from "@/lib/auth-hydration";
 import { ProfileMenu } from "@/components/profile-menu";
-const AiChatBubble = lazy(() =>
-  import("@/components/ai-chat-bubble").then((m) => ({ default: m.AiChatBubble })),
-);
+import { AiChatBubble } from "@/components/ai-chat-bubble";
 import { RemindersPopover } from "@/components/reminders-popover";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -156,9 +154,7 @@ function RootComponent() {
             </main>
           </div>
         </div>
-        <Suspense fallback={null}>
-          <AiChatBubble />
-        </Suspense>
+        <AiChatBubble />
         <Toaster richColors position="top-right" />
       </SidebarProvider>
     </ThemeProvider>

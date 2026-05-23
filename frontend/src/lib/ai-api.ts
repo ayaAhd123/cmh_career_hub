@@ -1,16 +1,7 @@
 import { useAuth } from "./auth";
 import { apiUrl } from "./api-base";
 
-export interface AiChatContext {
-  analytics: Record<string, unknown>;
-  promotions: unknown[];
-  candidates: unknown[];
-}
-
-export async function sendAiChat(
-  message: string,
-  context: AiChatContext,
-): Promise<string> {
+export async function sendAiChat(message: string): Promise<string> {
   const token = useAuth.getState().token;
   const res = await fetch(apiUrl("/api/v1/ai/chat"), {
     method: "POST",
@@ -18,7 +9,7 @@ export async function sendAiChat(
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ message, context }),
+    body: JSON.stringify({ message }),
   });
 
   const data = await res.json().catch(() => ({}));
@@ -26,7 +17,9 @@ export async function sendAiChat(
   if (!res.ok) {
     const msg =
       (data as { message?: string }).message ||
-      "Unable to reach the AI advisor. Please try again.";
+      (res.status === 429
+        ? "Too many AI requests. Please wait a minute and try again."
+        : "Unable to reach the AI advisor. Please try again.");
     throw new Error(msg);
   }
 
