@@ -54,10 +54,14 @@ interface CandidateListResponse {
 const authHeaders = (): HeadersInit => {
   const token = useAuth.getState().token;
   return {
+    Accept: "application/json",
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
+
+const apiFetch = (input: RequestInfo | URL, init?: RequestInit) =>
+  fetch(input, { ...init, redirect: "error" });
 
 export interface CreateCandidatePayload {
   promotionId: string;
@@ -81,7 +85,7 @@ export interface CandidateDetail extends CandidateListItem {
 }
 
 export async function fetchCandidateApi(id: string): Promise<CandidateDetail> {
-  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}`, {
+  const res = await apiFetch(`${API_BASE}/api/v1/candidates/${id}`, {
     headers: authHeaders(),
   });
 
@@ -121,7 +125,7 @@ export function candidateDetailToCandidate(detail: CandidateDetail): Candidate &
 export async function createCandidateApi(
   payload: CreateCandidatePayload,
 ): Promise<CandidateListItem> {
-  const res = await fetch(`${API_BASE}/api/v1/candidates`, {
+  const res = await apiFetch(`${API_BASE}/api/v1/candidates`, {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(payload),
@@ -147,7 +151,7 @@ export async function fetchCandidates(
     if (value && value !== "All") params.set(key, value);
   });
 
-  const res = await fetch(`${API_BASE}/api/v1/candidates?${params}`, {
+  const res = await apiFetch(`${API_BASE}/api/v1/candidates?${params}`, {
     headers: authHeaders(),
   });
 
@@ -163,7 +167,7 @@ export async function updateCandidateApi(
   id: string,
   payload: Partial<Candidate>,
 ): Promise<CandidateDetail> {
-  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}`, {
+  const res = await apiFetch(`${API_BASE}/api/v1/candidates/${id}`, {
     method: "PUT",
     headers: authHeaders(),
     body: JSON.stringify(payload),
@@ -181,7 +185,7 @@ export async function updateCandidateSkillsApi(
   id: string,
   skills: Skills,
 ): Promise<CandidateDetail> {
-  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}/skills`, {
+  const res = await apiFetch(`${API_BASE}/api/v1/candidates/${id}/skills`, {
     method: "PUT",
     headers: authHeaders(),
     body: JSON.stringify({ skills }),
@@ -199,7 +203,7 @@ export async function updateCandidateModuleGradesApi(
   id: string,
   modules: ModuleScore[],
 ): Promise<CandidateDetail> {
-  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}/module-grades`, {
+  const res = await apiFetch(`${API_BASE}/api/v1/candidates/${id}/module-grades`, {
     method: "PUT",
     headers: authHeaders(),
     body: JSON.stringify({ modules }),
@@ -217,7 +221,7 @@ export async function updateCandidateStatusApi(
   id: string,
   status: CandidateStatus,
 ): Promise<CandidateDetail> {
-  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}/status`, {
+  const res = await apiFetch(`${API_BASE}/api/v1/candidates/${id}/status`, {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify({ status }),
@@ -232,7 +236,7 @@ export async function updateCandidateStatusApi(
 }
 
 export async function deleteCandidateApi(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/v1/candidates/${id}`, {
+  const res = await apiFetch(`${API_BASE}/api/v1/candidates/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
     body: JSON.stringify({ confirm: "DELETE" }),
@@ -255,7 +259,7 @@ export async function exportCandidatesApi(
     if (value && value !== "All") params.set(key, value);
   });
 
-  const res = await fetch(`${API_BASE}/api/v1/candidates/export?${params}`, {
+  const res = await apiFetch(`${API_BASE}/api/v1/candidates/export?${params}`, {
     headers: {
       ...(useAuth.getState().token
         ? { Authorization: `Bearer ${useAuth.getState().token}` }

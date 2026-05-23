@@ -17,7 +17,10 @@ import {
   deleteCandidateApi,
   updateCandidateApi,
   type CandidateListItem,
+  type CreateCandidatePayload,
 } from "@/lib/candidate-api";
+import { useAuth } from "@/lib/auth";
+import type { EducationLevel, Gender } from "@/lib/types";
 import { fetchPromotionStats, fetchPromotionExportCandidates, type PromotionStats } from "@/lib/promotion-api";
 import {
   ArrowLeft,
@@ -112,6 +115,126 @@ const CHART_COLORS = [
   "hsl(340 75% 55%)",
   "hsl(190 80% 45%)",
 ];
+
+const IMPORT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const IMPORT_PHONE_RE = /^\+?[\d\s().-]{8,20}$/;
+const IMPORT_EDU_LEVELS = new Set<string>(["Bac", "Bac+2", "Bac+3", "Bac+4", "Bac+5", "Bac+8"]);
+
+function findExcelVal(normRow: Record<string, unknown>, ...keys: string[]) {
+  for (const k of keys) {
+    const found = Object.keys(normRow).find((nk) => nk === k || nk.includes(k));
+    if (found && normRow[found] !== undefined && normRow[found] !== "") {
+      return normRow[found];
+    }
+  }
+  return null;
+}
+
+function parseImportDate(raw: unknown): string | null {
+  if (raw == null || raw === "") return null;
+  const s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(`${s}T12:00:00`);
+    return !Number.isNaN(d.getTime()) && d <= new Date() ? s : null;
+  }
+  const dmy = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (dmy) {
+    const day = parseInt(dmy[1], 10);
+    const month = parseInt(dmy[2], 10);
+    const year = parseInt(dmy[3], 10);
+    const d = new Date(year, month - 1, day);
+    if (d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day && d <= new Date()) {
+      return d.toISOString().slice(0, 10);
+    }
+  }
+  const d = new Date(s);
+  return !Number.isNaN(d.getTime()) && d <= new Date() ? d.toISOString().slice(0, 10) : null;
+}
+
+function parseImportEducation(raw: unknown): EducationLevel | null {
+  if (raw == null || raw === "") return null;
+  const eduStr = String(raw).trim().toLowerCase();
+  if (eduStr.includes("8")) return "Bac+8";
+  if (eduStr.includes("5")) return "Bac+5";
+  if (eduStr.includes("4")) return "Bac+4";
+  if (eduStr.includes("3")) return "Bac+3";
+  if (eduStr.includes("2")) return "Bac+2";
+  if (eduStr === "bac") return "Bac";
+  const normalized = String(raw).trim();
+  return IMPORT_EDU_LEVELS.has(normalized) ? (normalized as EducationLevel) : null;
+}
+
+function parseImportGender(raw: unknown): Gender | null {
+  if (raw == null || raw === "") return null;
+  const gStr = String(raw).trim().toLowerCase();
+  if (gStr.startsWith("f")) return "Femme";
+  if (gStr.startsWith("h") || gStr.startsWith("m")) return "Homme";
+  return null;
+}
+
+function parseExcelCandidateRow(
+  row: Record<string, unknown>,
+  promotionId: string,
+): CreateCandidatePayload | null {
+  const normRow: Record<string, unknown> = {};
+  Object.keys(row).forEach((k) => {
+    normRow[k.toLowerCase().trim()] = row[k];
+  });
+
+  const rawFirstName = findExcelVal(normRow, "firstname", "first name", "prénom", "prenom", "name", "nom");
+  const rawLastName = findExcelVal(normRow, "lastname", "last name", "family");
+
+  let firstName = rawFirstName ? String(rawFirstName).trim() : "";
+  let lastName = rawLastName ? String(rawLastName).trim() : "";
+
+  if (rawFirstName && !rawLastName && firstName.includes(" ")) {
+    const parts = firstName.split(" ");
+    firstName = parts[0];
+    lastName = parts.slice(1).join(" ");
+  }
+
+  if (!firstName || !lastName) return null;
+
+  const email = String(findExcelVal(normRow, "email", "e-mail", "mail", "courriel") ?? "").trim();
+  const phone = String(findExcelVal(normRow, "phone", "téléphone", "telephone", "tel", "mobile", "gsm") ?? "").trim();
+  const recruitmentDate = parseImportDate(
+    findExcelVal(normRow, "recruitment date", "recruitmentdate", "date de recrutement", "date recrutement", "date"),
+  );
+  const rawAge = findExcelVal(normRow, "age", "âge");
+  const age = rawAge ? parseInt(String(rawAge), 10) : NaN;
+  const gender = parseImportGender(findExcelVal(normRow, "gender", "sexe", "genre"));
+  const educationLevel = parseImportEducation(
+    findExcelVal(normRow, "education level", "education", "niveau d'étude", "niveau d'etude", "niveau", "etudes"),
+  );
+  const diplomaName = String(
+    findExcelVal(normRow, "diploma name", "diploma", "diplôme", "diplome", "specialite", "spécialité", "filiere", "filière") ?? "",
+  ).trim();
+  const rawAvg = findExcelVal(normRow, "diploma average", "diploma avg", "moyenne diplome", "moyenne diplôme", "moyenne", "score", "note");
+  const diplomaAverage = rawAvg ? parseFloat(String(rawAvg).replace(",", ".")) : NaN;
+
+  if (!IMPORT_EMAIL_RE.test(email)) return null;
+  if (!IMPORT_PHONE_RE.test(phone)) return null;
+  if (!recruitmentDate) return null;
+  if (!Number.isFinite(age) || age < 18 || age > 65) return null;
+  if (!gender) return null;
+  if (!educationLevel) return null;
+  if (!diplomaName) return null;
+  if (!Number.isFinite(diplomaAverage) || diplomaAverage < 0 || diplomaAverage > 20) return null;
+
+  return {
+    promotionId,
+    firstName,
+    lastName,
+    email,
+    phone,
+    recruitmentDate,
+    age,
+    gender,
+    educationLevel,
+    diplomaName,
+    diplomaAverage,
+  };
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -266,13 +389,18 @@ function PromotionDetail() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
+        if (!useAuth.getState().token) {
+          toast.error("Session expired. Please sign in again.");
+          return;
+        }
+
         const data = event.target?.result;
         if (!data) return;
 
         const workbook = XLSX.read(data, { type: "binary" });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        const rows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { raw: false });
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { raw: false });
 
         if (rows.length === 0) {
           toast.error("The selected Excel file is empty");
@@ -281,106 +409,46 @@ function PromotionDetail() {
 
         let added = 0;
         let duplicates = 0;
+        let skipped = 0;
 
-        for (const [index, row] of rows.entries()) {
-          const normRow: Record<string, any> = {};
-          Object.keys(row).forEach((k) => {
-            normRow[k.toLowerCase().trim()] = row[k];
-          });
-
-          const findVal = (...keys: string[]) => {
-            for (const k of keys) {
-              const found = Object.keys(normRow).find((nk) => nk === k || nk.includes(k));
-              if (found && normRow[found] !== undefined && normRow[found] !== "") {
-                return normRow[found];
-              }
-            }
-            return null;
-          };
-
-          const rawFirstName = findVal("firstname", "first name", "prénom", "prenom", "name", "nom");
-          const rawLastName = findVal("lastname", "last name", "nom", "family");
-          
-          let firstName = rawFirstName ? String(rawFirstName).trim() : "Not provided";
-          let lastName = rawLastName ? String(rawLastName).trim() : "Not provided";
-
-          if (rawFirstName && !rawLastName && firstName.includes(" ")) {
-            const parts = firstName.split(" ");
-            firstName = parts[0];
-            lastName = parts.slice(1).join(" ");
-          }
-
-          const rawEmail = findVal("email", "e-mail", "mail", "courriel", "adresse");
-          const email = rawEmail ? String(rawEmail).trim() : "Not provided";
-
-          const rawPhone = findVal("phone", "téléphone", "telephone", "tel", "mobile", "gsm");
-          const phone = rawPhone ? String(rawPhone).trim() : "Not provided";
-
-          const rawDate = findVal("recruitment date", "recruitmentdate", "date de recrutement", "date recrutement", "date");
-          const recruitmentDate = rawDate ? String(rawDate).trim() : "Not provided";
-
-          const rawAge = findVal("age", "âge");
-          const age = rawAge ? parseInt(String(rawAge), 10) || "Not provided" : "Not provided";
-
-          const rawGender = findVal("gender", "sexe", "genre");
-          let gender: any = "Not provided";
-          if (rawGender) {
-            const gStr = String(rawGender).trim().toLowerCase();
-            if (gStr.startsWith("f")) gender = "Femme";
-            else if (gStr.startsWith("h") || gStr.startsWith("m")) gender = "Homme";
-            else gender = String(rawGender).trim();
-          }
-
-          const rawEdu = findVal("education level", "education", "niveau d'étude", "niveau d'etude", "niveau", "etudes");
-          let educationLevel: any = "Not provided";
-          if (rawEdu) {
-            const eduStr = String(rawEdu).trim().toLowerCase();
-            if (eduStr.includes("2")) educationLevel = "Bac+2";
-            else if (eduStr.includes("3")) educationLevel = "Bac+3";
-            else if (eduStr.includes("5")) educationLevel = "Bac+5";
-            else if (eduStr.includes("8")) educationLevel = "Bac+8";
-            else educationLevel = String(rawEdu).trim();
-          }
-
-          const rawDiploma = findVal("diploma name", "diploma", "diplôme", "diplome", "specialite", "spécialité", "filiere", "filière");
-          const diplomaName = rawDiploma ? String(rawDiploma).trim() : "Not provided";
-
-          const rawAvg = findVal("diploma average", "diploma avg", "moyenne diplome", "moyenne diplôme", "moyenne", "score", "note");
-          let diplomaAverage: any = rawAvg ? parseFloat(String(rawAvg).replace(",", ".")) : "Not provided";
-          if (typeof diplomaAverage === "number" && (isNaN(diplomaAverage) || diplomaAverage < 0 || diplomaAverage > 20)) {
-            diplomaAverage = "Not provided";
+        for (const row of rows) {
+          const payload = parseExcelCandidateRow(row, promotion.id);
+          if (!payload) {
+            skipped++;
+            continue;
           }
 
           try {
-            await createCandidateApi({
-              promotionId: promotion.id,
-              firstName,
-              lastName,
-              email,
-              phone,
-              recruitmentDate,
-              age,
-              gender,
-              educationLevel,
-              diplomaName,
-              diplomaAverage,
-            });
+            await createCandidateApi(payload);
             added++;
           } catch (err) {
             const message = err instanceof Error ? err.message : "";
+            if (message.toLowerCase().includes("unauthenticated")) {
+              toast.error("Session expired. Please sign in again.");
+              return;
+            }
             if (message.toLowerCase().includes("email")) {
               duplicates++;
+            } else {
+              skipped++;
             }
           }
         }
 
         if (added > 0) {
           await refreshData();
-          toast.success(`Successfully imported ${added} candidates!` + (duplicates > 0 ? ` (${duplicates} duplicates skipped)` : ""));
+          const parts = [`Successfully imported ${added} candidates!`];
+          if (duplicates > 0) parts.push(`${duplicates} duplicates skipped`);
+          if (skipped > 0) parts.push(`${skipped} invalid rows skipped`);
+          toast.success(parts.join(" · "));
         } else if (duplicates > 0) {
           toast.warning(`No new candidates added. ${duplicates} duplicate emails found.`);
         } else {
-          toast.error("Failed to import candidates. Please check the file format.");
+          toast.error(
+            skipped > 0
+              ? "No valid rows found. Check required columns: name, email, phone, date, age, gender, education, diploma."
+              : "Failed to import candidates. Please check the file format.",
+          );
         }
       } catch (err) {
         console.error(err);
