@@ -46,7 +46,7 @@ export function AppSidebar() {
           <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
             <span className="font-bold text-foreground">CareerHub</span>
             <span className="text-[10px] text-muted-foreground">
-              by CMH Cloud Marketing Hub
+              by Cloud Marketing Hub
             </span>
           </div>
         </div>
