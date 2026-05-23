@@ -1,7 +1,5 @@
 import { useAuth } from "./auth";
-
-const API_BASE =
-  (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8000";
+import { apiUrl } from "./api-base";
 
 export interface AiChatContext {
   analytics: Record<string, unknown>;
@@ -14,7 +12,7 @@ export async function sendAiChat(
   context: AiChatContext,
 ): Promise<string> {
   const token = useAuth.getState().token;
-  const res = await fetch(`${API_BASE}/api/v1/ai/chat`, {
+  const res = await fetch(apiUrl("/api/v1/ai/chat"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

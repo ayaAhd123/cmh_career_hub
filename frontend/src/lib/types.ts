@@ -74,6 +74,9 @@ export interface Promotion {
   archived: boolean;
   createdAt: string;
   dbId?: number;
+  candidateCount?: number;
+  passRate?: number;
+  avgScore?: number;
 }
 
 export interface DashboardKpis {

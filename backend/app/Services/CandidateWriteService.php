@@ -135,13 +135,14 @@ class CandidateWriteService
         );
     }
 
-    public function logRecruited(Candidate $candidate): void
+    public function logRecruited(Candidate $candidate, ?int $userId = null): void
     {
         ActivityLog::record(
             'Candidate',
             $candidate->id,
             'RECRUITED',
             'Candidate recruited',
+            $userId,
         );
     }
 

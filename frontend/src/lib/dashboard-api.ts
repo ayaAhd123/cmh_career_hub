@@ -1,8 +1,6 @@
 import { useAuth } from "./auth";
+import { apiUrl } from "./api-base";
 import type { DashboardStats, TimeRange } from "./types";
-
-const API_BASE =
-  (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8000";
 
 export async function fetchDashboardStats(
   timeRange: TimeRange,
@@ -17,7 +15,7 @@ export async function fetchDashboardStats(
     if (customEnd) params.set("customEnd", customEnd);
   }
 
-  const res = await fetch(`${API_BASE}/api/v1/dashboard/stats?${params}`, {
+  const res = await fetch(apiUrl(`/api/v1/dashboard/stats?${params}`), {
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

@@ -1,6 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useStore } from "@/lib/store";
+import {
+  deleteCandidateApi,
+  fetchCandidates,
+  restoreCandidateApi,
+  type CandidateListItem,
+} from "@/lib/candidate-api";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,11 +41,27 @@ function SettingsPage() {
   const theme = useTheme((s) => s.theme);
   const setTheme = useTheme((s) => s.setTheme);
 
-  const restore = useStore((s) => s.restoreCandidate);
-  const hardDelete = useStore((s) => s.hardDeleteCandidate);
-  const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
-  const archived = useMemo(() => allCandidates.filter((c) => c.archived), [allCandidates]);
+  const loadPromotions = useStore((s) => s.loadPromotions);
+  const [archived, setArchived] = useState<CandidateListItem[]>([]);
+  const [archivedLoading, setArchivedLoading] = useState(true);
+
+  const loadArchived = useCallback(async () => {
+    setArchivedLoading(true);
+    try {
+      const { data } = await fetchCandidates({ scope: "archived", sort: "name_asc" });
+      setArchived(data);
+    } catch {
+      toast.error("Failed to load archived candidates");
+    } finally {
+      setArchivedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPromotions();
+    void loadArchived();
+  }, [loadPromotions, loadArchived]);
 
   const [name, setName] = useState(profile?.name ?? '');
   const [email, setEmail] = useState(profile?.email ?? '');
@@ -148,6 +170,9 @@ function SettingsPage() {
               <Input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} />
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            New password must be at least 12 characters and include uppercase, lowercase, a number, and a special character.
+          </p>
           <Button onClick={savePassword} disabled={!current || !next || !confirmPwd}>
             Update password
           </Button>
@@ -172,7 +197,9 @@ function SettingsPage() {
           <CardTitle>Archive Management ({archived.length} archived)</CardTitle>
         </CardHeader>
         <CardContent>
-          {archived.length === 0 ? (
+          {archivedLoading ? (
+            <p className="text-sm text-muted-foreground">Loading archived candidates…</p>
+          ) : archived.length === 0 ? (
             <p className="text-sm text-muted-foreground">No archived candidates.</p>
           ) : (
             <div className="space-y-2">
@@ -185,7 +212,19 @@ function SettingsPage() {
                       <p className="text-xs text-muted-foreground">{c.email} · {promo?.name}</p>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => { restore(c.id); toast.success("Restored"); }}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            await restoreCandidateApi(c.id);
+                            toast.success("Restored");
+                            await loadArchived();
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Failed to restore");
+                          }
+                        }}
+                      >
                         Restore
                       </Button>
                       <AlertDialog>
@@ -203,9 +242,14 @@ function SettingsPage() {
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={() => {
-                                hardDelete(c.id);
-                                toast.success("Deleted");
+                              onClick={async () => {
+                                try {
+                                  await deleteCandidateApi(c.id);
+                                  toast.success("Deleted");
+                                  await loadArchived();
+                                } catch (err) {
+                                  toast.error(err instanceof Error ? err.message : "Failed to delete");
+                                }
                               }}
                             >
                               Delete

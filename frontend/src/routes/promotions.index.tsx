@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/badges";
-import { formatDate, overallAverage, passRate, promotionProgress, promotionStatus, isWithinCustomRange } from "@/lib/calc";
+import { formatDate, promotionProgress, promotionStatus, isWithinCustomRange } from "@/lib/calc";
 import { ArrowRight, Search, Inbox, SlidersHorizontal, Calendar, Check, X, PencilLine, ChevronLeft, ChevronRight, ArrowDownUp, ChevronDown, MoreVertical, Archive, Trash2, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -120,7 +120,6 @@ function InlineEdit({
 
 function PromotionsList() {
   const promotions = useStore((s) => s.promotions);
-  const candidates = useStore((s) => s.candidates);
   const promotionsLoading = useStore((s) => s.promotionsLoading);
   const loadPromotions = useStore((s) => s.loadPromotions);
   const updatePromotion = useStore((s) => s.updatePromotion);
@@ -235,12 +234,12 @@ function PromotionsList() {
       return true;
     });
 
-    return filtered.map(p => {
-       const promoCands = candidates.filter((c) => c.promotionId === p.id && !c.archived);
-       const pr = passRate(promoCands);
-       const avg = promoCands.length > 0 ? promoCands.reduce((a, c) => a + overallAverage(c), 0) / promoCands.length : 0;
-       return { ...p, passRate: pr, avgScore: avg, candsCount: promoCands.length, cands: promoCands };
-    }).sort((a, b) => {
+    return filtered.map((p) => ({
+       ...p,
+       passRate: p.passRate ?? 0,
+       avgScore: p.avgScore ?? 0,
+       candsCount: p.candidateCount ?? 0,
+    })).sort((a, b) => {
        if (sortBy === 'newest') return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
        if (sortBy === 'oldest') return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
        if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
@@ -248,7 +247,7 @@ function PromotionsList() {
        if (sortBy === 'pass_rate_desc') return b.passRate - a.passRate;
        return 0;
     });
-  }, [promotions, candidates, statusFilter, timeRange, customStart, customEnd, sortBy]);
+  }, [promotions, statusFilter, timeRange, customStart, customEnd, sortBy]);
 
   // Reset page when filters change
   useMemo(() => {

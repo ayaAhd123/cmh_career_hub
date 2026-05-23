@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { apiUrl } from "./api-base";
 
 export interface AdminProfile {
   name: string;
@@ -18,8 +19,6 @@ interface AuthState {
   changePassword: (current: string, next: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8000";
-
 export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -29,7 +28,7 @@ export const useAuth = create<AuthState>()(
       sessionReady: false,
       login: async (email, password) => {
         try {
-          const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+          const res = await fetch(apiUrl("/api/v1/auth/login"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),
@@ -57,7 +56,7 @@ export const useAuth = create<AuthState>()(
         try {
           const token = get().token;
           if (token) {
-            await fetch(`${API_BASE}/api/v1/auth/logout`, {
+            await fetch(apiUrl("/api/v1/auth/logout"), {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -74,7 +73,7 @@ export const useAuth = create<AuthState>()(
         try {
           const token = get().token;
           if (!token) throw new Error("Not authenticated");
-          const res = await fetch(`${API_BASE}/api/v1/auth/profile`, {
+          const res = await fetch(apiUrl("/api/v1/auth/profile"), {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
@@ -94,7 +93,7 @@ export const useAuth = create<AuthState>()(
         try {
           const token = get().token;
           if (!token) return { ok: false, error: "Not authenticated" };
-          const res = await fetch(`${API_BASE}/api/v1/auth/change-password`, {
+          const res = await fetch(apiUrl("/api/v1/auth/change-password"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -131,7 +130,7 @@ const validateStoredSession = async () => {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
+    const res = await fetch(apiUrl("/api/v1/auth/me"), {
       headers: { Authorization: `Bearer ${token}` },
     });
 

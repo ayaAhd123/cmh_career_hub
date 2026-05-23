@@ -29,6 +29,7 @@ Route::prefix('v1')->group(function () {
         Route::put('candidates/{candidate}/skills', [CandidateController::class, 'updateSkills']);
         Route::put('candidates/{candidate}/module-grades', [CandidateController::class, 'updateModuleGrades']);
         Route::patch('candidates/{candidate}/status', [CandidateController::class, 'updateStatus']);
+        Route::post('candidates/{candidate}/restore', [CandidateController::class, 'restore']);
         Route::apiResource('candidates', CandidateController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 
         // Custom Promotion endpoints

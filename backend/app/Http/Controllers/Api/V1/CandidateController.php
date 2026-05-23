@@ -13,6 +13,9 @@ use Illuminate\Validation\Rule;
 
 class CandidateController extends Controller
 {
+    /** Max length for base64 data-URL photos (~400 KB image). */
+    private const PHOTO_MAX_LENGTH = 524_288;
+
     public function __construct(
         private readonly CandidateQueryService $queryService,
         private readonly CandidateExportService $exportService,
@@ -41,7 +44,7 @@ class CandidateController extends Controller
             'educationLevel' => 'required|in:Bac,Bac+2,Bac+3,Bac+4,Bac+5,Bac+8',
             'diplomaName' => 'required|string|max:100',
             'diplomaAverage' => 'required|numeric|min:0|max:20',
-            'photo' => 'nullable|string',
+            'photo' => 'nullable|string|max:'.self::PHOTO_MAX_LENGTH,
         ]);
 
         $promotionId = $this->queryService->resolvePromotionId($validated['promotionId']);
@@ -66,7 +69,7 @@ class CandidateController extends Controller
         ]);
 
         $this->writeService->seedDefaultSkills($candidate);
-        $this->writeService->logRecruited($candidate);
+        $this->writeService->logRecruited($candidate, $request->user()?->id);
 
         return response()->json($this->detailResponse($candidate), 201);
     }
@@ -113,7 +116,7 @@ class CandidateController extends Controller
             'educationLevel' => 'sometimes|required|in:Bac,Bac+2,Bac+3,Bac+4,Bac+5,Bac+8',
             'diplomaName' => 'sometimes|required|string|max:100',
             'diplomaAverage' => 'sometimes|required|numeric|min:0|max:20',
-            'photo' => 'nullable|string',
+            'photo' => 'nullable|string|max:'.self::PHOTO_MAX_LENGTH,
         ]);
 
         $candidate->update([
@@ -182,6 +185,17 @@ class CandidateController extends Controller
         return response()->json($this->detailResponse($candidate));
     }
 
+    public function restore(Candidate $candidate)
+    {
+        if ($candidate->state !== 'Archived') {
+            return response()->json(['message' => 'Candidate is not archived.'], 400);
+        }
+
+        $this->writeService->updateStatus($candidate, 'Active');
+
+        return response()->json($this->detailResponse($candidate->fresh()));
+    }
+
     public function destroy(Request $request, Candidate $candidate)
     {
         $request->validate([
@@ -215,6 +229,7 @@ class CandidateController extends Controller
             'education_level' => 'nullable|string|max:20',
             'category' => 'nullable|string|max:20',
             'promotion_id' => 'nullable|string|max:50',
+            'scope' => 'nullable|in:graduates,archived',
             'sort' => 'nullable|in:avg_desc,avg_asc,name_asc,name_desc,date_desc,date_asc',
         ]);
     }

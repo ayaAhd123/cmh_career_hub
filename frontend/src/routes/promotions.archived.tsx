@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/badges";
-import { formatDate, overallAverage, passRate, promotionProgress, promotionStatus, isWithinCustomRange } from "@/lib/calc";
+import { formatDate, promotionProgress, promotionStatus, isWithinCustomRange } from "@/lib/calc";
 import { ArrowRight, Search, Inbox, SlidersHorizontal, Calendar, Check, X, PencilLine, ArrowLeft, MoreVertical, ArchiveRestore, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -91,7 +91,6 @@ function InlineEdit({ initialValue, onSave }: { initialValue: string; onSave: (v
 }
 
 function ArchivedPromotions() {
-  const candidates = useStore((s) => s.candidates);
   const archivedPromotions = useStore((s) => s.archivedPromotions);
   const archivedPromotionsLoaded = useStore((s) => s.archivedPromotionsLoaded);
   const archivedPromotionsLoading = useStore((s) => s.archivedPromotionsLoading);
@@ -285,12 +284,10 @@ function ArchivedPromotions() {
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filteredPromotions.map((p) => {
-            const promoCands = candidates.filter((c) => c.promotionId === p.id && !c.archived);
             const progress = promotionProgress(p);
-            const avg = promoCands.length > 0
-              ? promoCands.reduce((a, c) => a + overallAverage(c), 0) / promoCands.length
-              : 0;
-            const pr = passRate(promoCands);
+            const avg = p.avgScore ?? 0;
+            const pr = p.passRate ?? 0;
+            const promoCandsCount = p.candidateCount ?? 0;
 
             return (
               <Card key={p.id} className={`hover:shadow-md transition-all group ${p.archived ? 'opacity-70 grayscale-[0.5]' : 'hover:border-primary/30'}`}>
@@ -358,7 +355,7 @@ function ArchivedPromotions() {
 
                   <div className="grid grid-cols-3 gap-3 text-center pt-3 border-t">
                     <div className="flex flex-col items-center p-2 rounded-md hover:bg-muted/50 transition-colors">
-                      <span className="font-bold text-foreground text-xl">{promoCands.length}</span>
+                      <span className="font-bold text-foreground text-xl">{promoCandsCount}</span>
                       <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">Cands</span>
                     </div>
                     <div className="flex flex-col items-center p-2 rounded-md hover:bg-muted/50 transition-colors">

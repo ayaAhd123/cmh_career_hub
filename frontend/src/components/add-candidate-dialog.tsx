@@ -33,6 +33,37 @@ const readFileAsDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
+/** Resize/compress photos so POST body stays within API limits. */
+const preparePhotoForUpload = async (file: File): Promise<string> => {
+  const original = await readFileAsDataUrl(file);
+  if (original.length <= 400_000) return original;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSide = 800;
+      let { width, height } = img;
+      if (width > maxSide || height > maxSide) {
+        const scale = maxSide / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(original);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => reject(new Error("Could not process image"));
+    img.src = original;
+  });
+};
+
 export function AddCandidateDialog({
   promotionId,
   onSuccess,
@@ -88,7 +119,16 @@ export function AddCandidateDialog({
     if (form.diplomaAverage === "" || Number(form.diplomaAverage) < 0 || Number(form.diplomaAverage) > 20)
       return toast.error("Diploma average must be 0-20");
 
-    const photoValue = form.photoFile ? await readFileAsDataUrl(form.photoFile) : form.photo || undefined;
+    let photoValue: string | undefined;
+    if (form.photoFile) {
+      try {
+        photoValue = await preparePhotoForUpload(form.photoFile);
+      } catch {
+        return toast.error("Could not process the photo. Try a smaller image.");
+      }
+    } else if (form.photo) {
+      photoValue = form.photo;
+    }
 
     setSubmitting(true);
     try {

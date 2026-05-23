@@ -224,7 +224,7 @@ function AllCandidates() {
               Grouped by promotion in export. Includes all statuses unless filtered.
             </div>
             <div className="px-2 pb-2">
-              <div className="text-xs text-muted-foreground mb-1.5">Language / Langue</div>
+              <div className="text-xs text-muted-foreground mb-1.5">Language</div>
               <div className="flex gap-1">
                 <Button
                   type="button"

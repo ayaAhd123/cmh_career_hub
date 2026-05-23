@@ -65,11 +65,13 @@ class Candidate extends Model
         $threshold = SystemSetting::current()?->passing_threshold ?? 10;
 
         $this->overall_avg = round($avg, 2);
-        $this->category = match(true) {
-            $avg >= 16             => 'Excellent',
-            $avg >= $threshold + 2 => 'Bien',
-            $avg >= $threshold     => 'Passable',
-            default                => 'Critique',
+        // Module scores are /20; map to the same 0–5 scale used in CandidateScoreService.
+        $scaled = $avg / 4;
+        $this->category = match (true) {
+            $scaled >= 4.0 => 'Excellent',
+            $scaled >= 3.5 => 'Good',
+            $scaled >= ($threshold / 4) => 'Passable',
+            default => 'Critical',
         };
 
         $this->saveQuietly(); // saveQuietly évite de déclencher les Observers en boucle

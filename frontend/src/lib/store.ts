@@ -9,14 +9,12 @@ import type {
 import { buildModules, emptySkills } from "./types";
 import { calcEndDate } from "./calc";
 import { useAuth } from "./auth";
+import { apiUrl } from "./api-base";
 
 /* ─── API helper ─── */
-const API_BASE =
-  (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8000";
-
 const apiFetch = async (path: string, options: RequestInit = {}) => {
   const token = useAuth.getState().token;
-  const res = await fetch(`${API_BASE}/api/v1${path}`, {
+  const res = await fetch(apiUrl(`/api/v1${path}`), {
     ...options,
     headers: {
       "Content-Type": "application/json",

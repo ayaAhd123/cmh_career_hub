@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,14 @@ import {
 import type { ExportLocale } from "@/lib/export-labels";
 import { SearchSelect } from "@/components/search-select";
 import { Label } from "@/components/ui/label";
+import {
+  candidateDetailToCandidate,
+  fetchCandidateApi,
+  fetchCandidates,
+  type CandidateListItem,
+} from "@/lib/candidate-api";
+import { fetchPromotionExportCandidates } from "@/lib/promotion-api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({ meta: [{ title: "Reports & Exports — CareerHub" }] }),
@@ -21,15 +29,36 @@ export const Route = createFileRoute("/reports")({
 });
 
 function Reports() {
-  const allCandidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
-  const candidates = useMemo(() => allCandidates.filter((c) => !c.archived), [allCandidates]);
+  const loadPromotions = useStore((s) => s.loadPromotions);
+
+  const [candidates, setCandidates] = useState<CandidateListItem[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(true);
   const [candId, setCandId] = useState<string>("");
   const [candFmt, setCandFmt] = useState<"pdf" | "xlsx" | "html">("pdf");
   const [candLang, setCandLang] = useState<ExportLocale>("fr");
   const [promoId, setPromoId] = useState<string>("");
   const [promoFmt, setPromoFmt] = useState<"pdf" | "xlsx" | "html">("pdf");
   const [promoLang, setPromoLang] = useState<ExportLocale>("fr");
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    void loadPromotions();
+  }, [loadPromotions]);
+
+  useEffect(() => {
+    void (async () => {
+      setLoadingCandidates(true);
+      try {
+        const { data } = await fetchCandidates({ sort: "name_asc" });
+        setCandidates(data);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load candidates");
+      } finally {
+        setLoadingCandidates(false);
+      }
+    })();
+  }, []);
 
   const candOpts = useMemo(
     () =>
@@ -45,23 +74,40 @@ function Reports() {
     [promotions],
   );
 
-  const genCand = () => {
-    const c = candidates.find((x) => x.id === candId);
-    if (!c) return;
-    const p = promotions.find((p) => p.id === c.promotionId);
-    const opts = { locale: candLang };
-    if (candFmt === "pdf") exportCandidatePDF(c, p, opts);
-    if (candFmt === "xlsx") exportCandidateExcel(c, p, opts);
-    if (candFmt === "html") exportCandidateHTML(c, p, opts);
+  const genCand = async () => {
+    if (!candId) return;
+    setExporting(true);
+    try {
+      const detail = await fetchCandidateApi(candId);
+      const c = candidateDetailToCandidate(detail);
+      const p = promotions.find((promo) => promo.id === c.promotionId);
+      const opts = { locale: candLang };
+      if (candFmt === "pdf") exportCandidatePDF(c, p, opts);
+      if (candFmt === "xlsx") exportCandidateExcel(c, p, opts);
+      if (candFmt === "html") exportCandidateHTML(c, p, opts);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
   };
-  const genPromo = () => {
-    const p = promotions.find((x) => x.id === promoId);
-    if (!p) return;
-    const cands = candidates.filter((c) => c.promotionId === p.id);
-    const opts = { locale: promoLang };
-    if (promoFmt === "pdf") exportPromotionPDF(p, cands, opts);
-    if (promoFmt === "xlsx") exportPromotionExcel(p, cands, opts);
-    if (promoFmt === "html") exportPromotionHTML(p, cands, opts);
+
+  const genPromo = async () => {
+    if (!promoId) return;
+    setExporting(true);
+    try {
+      const p = promotions.find((x) => x.id === promoId);
+      if (!p) return;
+      const cands = await fetchPromotionExportCandidates(promoId);
+      const opts = { locale: promoLang };
+      if (promoFmt === "pdf") exportPromotionPDF(p, cands, opts);
+      if (promoFmt === "xlsx") exportPromotionExcel(p, cands, opts);
+      if (promoFmt === "html") exportPromotionHTML(p, cands, opts);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -76,7 +122,7 @@ function Reports() {
               value={candId}
               onChange={setCandId}
               options={candOpts}
-              placeholder="Search & select candidate..."
+              placeholder={loadingCandidates ? "Loading candidates…" : "Search & select candidate..."}
               emptyText="No candidate found."
               className="w-full"
             />
@@ -102,8 +148,8 @@ function Reports() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={genCand} disabled={!candId} className="self-end">
-            <Download className="mr-1 h-4 w-4" /> Generate
+          <Button onClick={() => void genCand()} disabled={!candId || exporting} className="self-end">
+            <Download className="mr-1 h-4 w-4" /> {exporting ? "Generating…" : "Generate"}
           </Button>
           <p className="w-full text-xs text-muted-foreground">
             Module and skill names always remain in French; only report labels change with the selected language.
@@ -145,8 +191,8 @@ function Reports() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={genPromo} disabled={!promoId} className="self-end">
-            <Download className="mr-1 h-4 w-4" /> Generate
+          <Button onClick={() => void genPromo()} disabled={!promoId || exporting} className="self-end">
+            <Download className="mr-1 h-4 w-4" /> {exporting ? "Generating…" : "Generate"}
           </Button>
           <p className="w-full text-xs text-muted-foreground">
             Module and skill names always remain in French; only report labels change with the selected language.

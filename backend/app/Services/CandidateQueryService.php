@@ -14,7 +14,7 @@ class CandidateQueryService
 
     public function list(array $filters): array
     {
-        $candidates = $this->baseQuery()->get();
+        $candidates = $this->baseQuery($filters)->get();
         $filtered = $this->applyFilters($candidates, $filters);
         $sorted = $this->applySort($filtered, $filters['sort'] ?? 'avg_desc');
 
@@ -28,28 +28,39 @@ class CandidateQueryService
 
     public function exportRows(array $filters): Collection
     {
-        $candidates = $this->baseQuery()->get();
+        $candidates = $this->baseQuery($filters)->get();
         $filtered = $this->applyFilters($candidates, $filters);
         $sorted = $this->applySort($filtered, $filters['sort'] ?? 'avg_desc');
 
         return $sorted->map(fn (Candidate $c) => $this->formatter->formatExportRow($c));
     }
 
-    private function baseQuery()
+    private function baseQuery(array $filters)
     {
-        return Candidate::query()
+        $query = Candidate::query()
             ->with([
                 'promotion',
                 'skills',
                 'moduleGrades',
                 'promotion.modules' => fn ($q) => $q->orderBy('module_order'),
-            ])
-            ->where('state', '!=', 'Archived');
+            ]);
+
+        if (($filters['scope'] ?? '') === 'archived') {
+            return $query->where('state', 'Archived');
+        }
+
+        return $query->where('state', '!=', 'Archived');
     }
 
     private function applyFilters(Collection $candidates, array $filters): Collection
     {
         $result = $candidates;
+
+        if (($filters['scope'] ?? '') === 'graduates') {
+            $result = $result->filter(
+                fn (Candidate $candidate) => CandidateScoreService::isGraduate($candidate)
+            )->values();
+        }
 
         if (! empty($filters['q'])) {
             $q = mb_strtolower(trim($filters['q']));

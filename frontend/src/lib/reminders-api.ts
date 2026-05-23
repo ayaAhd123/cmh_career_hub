@@ -1,7 +1,5 @@
 import { useAuth } from "./auth";
-
-const API_BASE =
-  (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8000";
+import { apiUrl } from "./api-base";
 
 export type ReminderIcon = "calendar" | "users" | "alert" | "clipboard" | "bell" | "trending";
 
@@ -61,7 +59,7 @@ export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
 export async function fetchReminders(): Promise<RemindersResponse> {
   const token = useAuth.getState().token;
 
-  const res = await fetch(`${API_BASE}/api/v1/reminders`, {
+  const res = await fetch(apiUrl("/api/v1/reminders"), {
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

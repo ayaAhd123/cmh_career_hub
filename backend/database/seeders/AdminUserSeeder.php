@@ -4,8 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-
 class AdminUserSeeder extends Seeder
 {
     /**
@@ -18,7 +16,7 @@ class AdminUserSeeder extends Seeder
 
         if ($isNew) {
             $user->full_name = 'Admin User';
-            $user->password = Hash::make(env('ADMIN_INITIAL_PASSWORD', 'ChangeMeNow!'));
+            $user->password = env('ADMIN_INITIAL_PASSWORD', 'ChangeMeNow!');
             $user->role = 'Admin';
         }
 

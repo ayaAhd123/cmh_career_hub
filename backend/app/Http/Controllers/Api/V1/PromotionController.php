@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Promotion;
+use App\Services\CandidateScoreService;
 use App\Services\PromotionExportService;
 use App\Services\PromotionModuleService;
 use App\Services\PromotionStatsService;
@@ -34,8 +35,16 @@ class PromotionController extends Controller
             });
         }
 
+        $promotions = $query
+            ->with([
+                'candidates' => fn ($q) => $q
+                    ->where('state', '!=', 'Archived')
+                    ->with(['skills', 'moduleGrades']),
+            ])
+            ->get();
+
         return response()->json(
-            $query->get()->map(fn ($p) => $this->formatPromotion($p))
+            $promotions->map(fn ($p) => $this->formatPromotionWithStats($p))
         );
     }
 
@@ -54,8 +63,16 @@ class PromotionController extends Controller
             });
         }
 
+        $promotions = $query
+            ->with([
+                'candidates' => fn ($q) => $q
+                    ->where('state', '!=', 'Archived')
+                    ->with(['skills', 'moduleGrades']),
+            ])
+            ->get();
+
         return response()->json(
-            $query->get()->map(fn ($p) => $this->formatPromotion($p))
+            $promotions->map(fn ($p) => $this->formatPromotionWithStats($p))
         );
     }
 
@@ -230,6 +247,14 @@ class PromotionController extends Controller
         ];
     }
 
-    
+    private function formatPromotionWithStats(Promotion $p): array
+    {
+        $candidates = $p->relationLoaded('candidates') ? $p->candidates : collect();
 
+        return array_merge($this->formatPromotion($p), [
+            'candidateCount' => $candidates->count(),
+            'passRate' => CandidateScoreService::passRate($candidates),
+            'avgScore' => round(CandidateScoreService::globalAverage($candidates), 1),
+        ]);
+    }
 }

@@ -1,8 +1,6 @@
 import { useAuth } from "./auth";
+import { apiUrl } from "./api-base";
 import type { Category, Candidate } from "./types";
-
-const API_BASE =
-  (import.meta.env.VITE_API_BASE_URL as string) || "http://localhost:8000";
 
 export interface PromotionStatsProgress {
   workingDone: number;
@@ -65,7 +63,7 @@ export interface PromotionStats {
 export async function fetchPromotionStats(promotionId: string): Promise<PromotionStats> {
   const token = useAuth.getState().token;
 
-  const res = await fetch(`${API_BASE}/api/v1/promotions/${promotionId}/stats`, {
+  const res = await fetch(apiUrl(`/api/v1/promotions/${promotionId}/stats`), {
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -83,7 +81,7 @@ export async function fetchPromotionStats(promotionId: string): Promise<Promotio
 export async function fetchPromotionExportCandidates(promotionId: string): Promise<Candidate[]> {
   const token = useAuth.getState().token;
 
-  const res = await fetch(`${API_BASE}/api/v1/promotions/${promotionId}/export-data`, {
+  const res = await fetch(apiUrl(`/api/v1/promotions/${promotionId}/export-data`), {
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

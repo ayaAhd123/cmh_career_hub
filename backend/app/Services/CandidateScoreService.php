@@ -83,4 +83,20 @@ class CandidateScoreService
     {
         return self::categoryFor($avg) === $category;
     }
+
+    /**
+     * A graduate is explicitly marked Graduated, or has passed (avg ≥ 2.5/5) while not Active/Archived.
+     */
+    public static function isGraduate(Candidate $candidate): bool
+    {
+        if ($candidate->state === 'Graduated') {
+            return true;
+        }
+
+        if (in_array($candidate->state, ['Active', 'Archived'], true)) {
+            return false;
+        }
+
+        return self::overallAverage($candidate) >= 2.5;
+    }
 }
