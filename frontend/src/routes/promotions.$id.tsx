@@ -161,6 +161,15 @@ function PromotionDetail() {
 
   const editingCandidate = candidates.find((c) => c.id === editingCandidateId) ?? null;
 
+  const hasFilters =
+    search !== "" || filterCat !== "all" || filterStatus !== "all";
+
+  const clearFilters = () => {
+    setSearch("");
+    setFilterCat("all");
+    setFilterStatus("all");
+  };
+
   const apiFilters = useMemo(
     () => ({
       promotion_id: id,
@@ -745,6 +754,12 @@ function PromotionDetail() {
                       <SelectItem value="Terminated">Terminated</SelectItem>
                     </SelectContent>
                   </Select>
+                  {hasFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5 mr-1.5" />
+                      Clear
+                    </Button>
+                  )}
                   <input
                     type="file"
                     accept=".xlsx,.xls,.csv"
