@@ -122,6 +122,28 @@ function ArchivedPromotions() {
     setSearchQuery("");
   };
 
+  const submitRestorePromotion = async () => {
+    if (!restoreId) return;
+    try {
+      await restorePromotion(restoreId);
+      setRestoreId(null);
+      toast.success("Promotion restored with its candidates");
+    } catch (e) {
+      toast.error((e as Error).message || "Failed to restore");
+    }
+  };
+
+  const submitPermanentDeletePromotion = async () => {
+    if (!deleteId) return;
+    try {
+      await permanentDeletePromotion(deleteId);
+      setDeleteId(null);
+      toast.success("Promotion permanently deleted");
+    } catch (e) {
+      toast.error((e as Error).message || "Failed to delete");
+    }
+  };
+
   const handleStartChange = (val: string) => {
     if (val && customEnd && val > customEnd) {
       toast.error("Start date must be before end date");
@@ -384,6 +406,12 @@ function ArchivedPromotions() {
 
       <AlertDialog open={!!restoreId} onOpenChange={(open) => !open && setRestoreId(null)}>
         <AlertDialogContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitRestorePromotion();
+            }}
+          >
           <AlertDialogHeader>
             <AlertDialogTitle>Restore this promotion?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -391,29 +419,24 @@ function ArchivedPromotions() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="cursor-pointer"
-              onClick={async () => {
-                if (!restoreId) return;
-                try {
-                  await restorePromotion(restoreId);
-                  setRestoreId(null);
-                  toast.success("Promotion restored with its candidates");
-                } catch (e) {
-                  toast.error((e as Error).message || "Failed to restore");
-                }
-              }}
-            >
+            <AlertDialogCancel type="button" className="cursor-pointer">Cancel</AlertDialogCancel>
+            <AlertDialogAction type="submit" className="cursor-pointer">
               Restore
             </AlertDialogAction>
           </AlertDialogFooter>
+          </form>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitPermanentDeletePromotion();
+            }}
+          >
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -421,23 +444,15 @@ function ArchivedPromotions() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90" 
-              onClick={async () => {
-                if (!deleteId) return;
-                try {
-                  await permanentDeletePromotion(deleteId);
-                  setDeleteId(null);
-                  toast.success("Promotion permanently deleted");
-                } catch (e) {
-                  toast.error((e as Error).message || "Failed to delete");
-                }
-              }}
+            <AlertDialogCancel type="button" className="cursor-pointer">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              type="submit"
+              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete Promotion
             </AlertDialogAction>
           </AlertDialogFooter>
+          </form>
         </AlertDialogContent>
       </AlertDialog>
     </div>

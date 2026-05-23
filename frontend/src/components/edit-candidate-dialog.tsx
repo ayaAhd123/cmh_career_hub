@@ -143,6 +143,12 @@ export function EditCandidateDialog({
           <DialogTitle>Edit Candidate</DialogTitle>
         </DialogHeader>
 
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
         <div className="grid gap-4 sm:grid-cols-2 py-2">
           <div>
             <Label>First Name *</Label>
@@ -295,13 +301,14 @@ export function EditCandidateDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit}>
+          <Button type="submit">
             <Check className="mr-2 h-4 w-4" /> Save
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

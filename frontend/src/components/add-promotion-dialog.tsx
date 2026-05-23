@@ -52,7 +52,13 @@ export function AddPromotionDialog() {
         <DialogHeader>
           <DialogTitle>Create Promotion</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+          className="space-y-4 py-2"
+        >
           <div>
             <Label>Name</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Sales Bootcamp Q1" />
@@ -64,10 +70,9 @@ export function AddPromotionDialog() {
               End date: {formatDate(calcEndDate(startDate))} (5 weeks · 25 working days)
             </p>
           </div>
-        </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={loading}>
+          <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button type="submit" disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
@@ -77,6 +82,7 @@ export function AddPromotionDialog() {
             )}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

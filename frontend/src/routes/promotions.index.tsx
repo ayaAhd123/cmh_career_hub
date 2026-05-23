@@ -158,6 +158,34 @@ function PromotionsList() {
     setCurrentPage(1);
   };
 
+  const submitArchivePromotion = async () => {
+    if (!archiveId || actionLoading === "archive") return;
+    setActionLoading("archive");
+    try {
+      await archivePromotion(archiveId);
+      setArchiveId(null);
+      toast.success("Promotion archived");
+    } catch (err) {
+      showApiError(err, "Failed to archive promotion");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const submitDeletePromotion = async () => {
+    if (!deleteId || actionLoading === "delete") return;
+    setActionLoading("delete");
+    try {
+      await deletePromotion(deleteId);
+      setDeleteId(null);
+      toast.success("Promotion deleted — you can restore it from Archived");
+    } catch (err) {
+      showApiError(err, "Failed to delete promotion");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleStartChange = (val: string) => {
     if (val && customEnd && val > customEnd) {
       toast.error("Start date must be before end date");
@@ -576,6 +604,12 @@ function PromotionsList() {
       {/* Archive Confirmation */}
       <AlertDialog open={!!archiveId} onOpenChange={(open) => !open && setArchiveId(null)}>
         <AlertDialogContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitArchivePromotion();
+            }}
+          >
           <AlertDialogHeader>
             <AlertDialogTitle>Archive this promotion?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -583,25 +617,13 @@ function PromotionsList() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="cursor-pointer" disabled={actionLoading === "archive"}>
+            <AlertDialogCancel type="button" className="cursor-pointer" disabled={actionLoading === "archive"}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
+              type="submit"
               className="cursor-pointer"
               disabled={actionLoading === "archive"}
-              onClick={async () => {
-                if (!archiveId) return;
-                setActionLoading("archive");
-                try {
-                  await archivePromotion(archiveId);
-                  setArchiveId(null);
-                  toast.success("Promotion archived");
-                } catch (err) {
-                  showApiError(err, "Failed to archive promotion");
-                } finally {
-                  setActionLoading(null);
-                }
-              }}
             >
               {actionLoading === "archive" ? (
                 <>
@@ -612,12 +634,19 @@ function PromotionsList() {
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
+          </form>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Delete (soft) Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitDeletePromotion();
+            }}
+          >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this promotion?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -625,25 +654,13 @@ function PromotionsList() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="cursor-pointer" disabled={actionLoading === "delete"}>
+            <AlertDialogCancel type="button" className="cursor-pointer" disabled={actionLoading === "delete"}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
+              type="submit"
               className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={actionLoading === "delete"}
-              onClick={async () => {
-                if (!deleteId) return;
-                setActionLoading("delete");
-                try {
-                  await deletePromotion(deleteId);
-                  setDeleteId(null);
-                  toast.success("Promotion deleted — you can restore it from Archived");
-                } catch (err) {
-                  showApiError(err, "Failed to delete promotion");
-                } finally {
-                  setActionLoading(null);
-                }
-              }}
             >
               {actionLoading === "delete" ? (
                 <>
@@ -654,6 +671,7 @@ function PromotionsList() {
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
+          </form>
         </AlertDialogContent>
       </AlertDialog>
     </div>

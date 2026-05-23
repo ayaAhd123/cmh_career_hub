@@ -496,6 +496,18 @@ function PromotionDetail() {
     }
   };
 
+  const handleArchivePromotion = async () => {
+    if (!confirmOne || !confirmTwo) return;
+    try {
+      await archive(promotion!.id);
+      setArchiveDialogOpen(false);
+      toast.success("Promotion archived");
+      nav({ to: "/promotions" });
+    } catch (e) {
+      toast.error((e as Error).message || "Failed to archive");
+    }
+  };
+
   if (!promotion) {
     return (
       <div className="text-center py-20">
@@ -588,6 +600,12 @@ function PromotionDetail() {
                       Are you sure you want to archive this promotion? This action requires double confirmation.
                     </DialogDescription>
                   </DialogHeader>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void handleArchivePromotion();
+                    }}
+                  >
                   <div className="py-4 space-y-4">
                     <div className="flex items-start space-x-3">
                       <Checkbox id="confirmOne" checked={confirmOne} onCheckedChange={(c) => setConfirmOne(!!c)} />
@@ -603,26 +621,18 @@ function PromotionDetail() {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setArchiveDialogOpen(false)}>
+                    <Button type="button" variant="outline" onClick={() => setArchiveDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button 
-                      variant="destructive" 
+                    <Button
+                      type="submit"
+                      variant="destructive"
                       disabled={!confirmOne || !confirmTwo}
-                      onClick={async () => {
-                        try {
-                          await archive(promotion.id);
-                          setArchiveDialogOpen(false);
-                          toast.success("Promotion archived");
-                          nav({ to: "/promotions" });
-                        } catch (e) {
-                          toast.error((e as Error).message || "Failed to archive");
-                        }
-                      }}
                     >
                       Confirm Archive
                     </Button>
                   </DialogFooter>
+                  </form>
                 </DialogContent>
               </Dialog>
             </div>
@@ -965,6 +975,13 @@ function PromotionDetail() {
         }}
       >
         <AlertDialogContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (deleteConfirmText !== "DELETE") return;
+              void handleDelete();
+            }}
+          >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete candidate?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -983,15 +1000,16 @@ function PromotionDetail() {
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+            <AlertDialogCancel type="button" className="cursor-pointer">Cancel</AlertDialogCancel>
             <AlertDialogAction
+              type="submit"
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
               disabled={deleteConfirmText !== "DELETE"}
-              onClick={() => void handleDelete()}
             >
               Delete permanently
             </AlertDialogAction>
           </AlertDialogFooter>
+          </form>
         </AlertDialogContent>
       </AlertDialog>
     </div>

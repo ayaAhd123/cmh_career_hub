@@ -185,6 +185,12 @@ export function AddCandidateDialog({
         <DialogHeader>
           <DialogTitle>Add Candidate</DialogTitle>
         </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
         <div className="grid gap-4 sm:grid-cols-2 py-2 max-h-[65vh] overflow-y-auto pr-2">
           <div>
             <Label>First Name *</Label>
@@ -273,11 +279,12 @@ export function AddCandidateDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting}>
+          <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button type="submit" disabled={submitting}>
             {submitting ? "Adding..." : "Add"}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

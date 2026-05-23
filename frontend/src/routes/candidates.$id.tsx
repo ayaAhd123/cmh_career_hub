@@ -358,17 +358,10 @@ function CandidateDetail() {
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Archive candidate?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action will archive the candidate and remove them from the active promotion view.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={async () => {
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void (async () => {
                       try {
                         await deleteCandidateApi(candidate.id);
                         toast.success("Candidate deleted");
@@ -378,11 +371,25 @@ function CandidateDetail() {
                       } finally {
                         setShowDeleteDialog(false);
                       }
-                    }}
+                    })();
+                  }}
+                >
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Archive candidate?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action will archive the candidate and remove them from the active promotion view.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel type="button" className="cursor-pointer">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    type="submit"
+                    className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
                     Archive candidate
                   </AlertDialogAction>
                 </AlertDialogFooter>
+                </form>
               </AlertDialogContent>
             </AlertDialog>
           </div>
@@ -411,7 +418,13 @@ function CandidateDetail() {
             </CardHeader>
             <CardContent className="p-6 pt-2">
               {isEditing ? (
-                <div className="space-y-4">
+                <form
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void saveChanges();
+                  }}
+                >
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <Label>First Name *</Label>
@@ -500,14 +513,14 @@ function CandidateDetail() {
                     </div>
                   </div>
                   <div className="flex justify-end gap-2 pt-4 border-t">
-                    <Button variant="ghost" onClick={() => setIsEditing(false)}>
+                    <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>
                       <X className="mr-1 h-4 w-4" /> Cancel
                     </Button>
-                    <Button onClick={saveChanges}>
+                    <Button type="submit">
                       <Save className="mr-1 h-4 w-4" /> Save Changes
                     </Button>
                   </div>
-                </div>
+                </form>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 text-sm">
                   <Field label="Email" value={candidate.email} />

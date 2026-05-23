@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useAuthHydrated } from "@/lib/auth-hydration";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,28 +24,34 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (!hydrated || !isAuth) return;
     nav({ to: "/", replace: true });
   }, [hydrated, isAuth, nav]);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    (async () => {
-      setLoading(true);
-      try {
-        const result = await login(email.trim(), password);
-        if (result.ok) {
-          toast.success("Welcome back!");
-          nav({ to: "/" });
-        } else {
-          toast.error(result.error ?? "Invalid credentials");
-        }
-      } finally {
-        setLoading(false);
+    if (loading) return;
+    setLoading(true);
+    try {
+      const result = await login(email.trim(), password);
+      if (result.ok) {
+        toast.success("Welcome back!");
+        nav({ to: "/" });
+      } else {
+        toast.error(result.error ?? "Invalid credentials");
       }
-    })();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitOnEnter = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" || loading) return;
+    e.preventDefault();
+    formRef.current?.requestSubmit();
   };
 
   return (
@@ -61,7 +67,14 @@ function LoginPage() {
               <p className="text-xs text-muted-foreground">by Cloud Marketing Hub</p>
             </div>
           </div>
-          <form onSubmit={submit} className="space-y-4">
+          <form
+            ref={formRef}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submit(e);
+            }}
+            className="space-y-4"
+          >
             <div>
               <Label htmlFor="email">Email</Label>
               <Input
@@ -70,6 +83,7 @@ function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={submitOnEnter}
                 required
               />
             </div>
@@ -82,6 +96,7 @@ function LoginPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={submitOnEnter}
                   className="pr-10"
                   required
                 />
@@ -89,6 +104,7 @@ function LoginPage() {
                   type="button"
                   variant="ghost"
                   size="icon"
+                  tabIndex={-1}
                   className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Hide password" : "Show password"}

@@ -521,6 +521,13 @@ function AllCandidates() {
         }}
       >
         <AlertDialogContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (deleteConfirmText !== "DELETE") return;
+              void handleDelete();
+            }}
+          >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete candidate?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -538,15 +545,16 @@ function AllCandidates() {
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+            <AlertDialogCancel type="button" className="cursor-pointer">Cancel</AlertDialogCancel>
             <AlertDialogAction
+              type="submit"
               className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteConfirmText !== "DELETE"}
-              onClick={() => void handleDelete()}
             >
               Delete candidate
             </AlertDialogAction>
           </AlertDialogFooter>
+          </form>
         </AlertDialogContent>
       </AlertDialog>
     </div>

@@ -75,13 +75,20 @@ function SettingsPage() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
+  const [profileTouched, setProfileTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const canSubmitProfile = profileTouched && !!name.trim() && emailValid;
+  const canSubmitPassword = passwordTouched && !!current && !!next && !!confirmPwd;
 
   const saveProfile = async () => {
     if (!name.trim()) return toast.error("Name required");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast.error("Invalid email");
+    if (!emailValid) return toast.error("Invalid email");
     try {
       await updateProfile({ name: name.trim(), email: email.trim() });
       toast.success("Profile updated");
+      setProfileTouched(false);
     } catch (err) {
       toast.error("Failed to update profile");
     }
@@ -92,7 +99,22 @@ function SettingsPage() {
     const r = await changePassword(current, next);
     if (!r.ok) return toast.error(r.error ?? "Failed");
     toast.success("Password changed");
-    setCurrent(""); setNext(""); setConfirmPwd("");
+    setCurrent("");
+    setNext("");
+    setConfirmPwd("");
+    setPasswordTouched(false);
+  };
+
+  const handleProfileSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmitProfile) return;
+    void saveProfile();
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmitPassword) return;
+    void savePassword();
   };
 
   return (
@@ -114,18 +136,37 @@ function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><User className="h-4 w-4" /> Profile</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label>Full name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+        <CardContent>
+          <form onSubmit={handleProfileSubmit} className="space-y-3">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="profile-name">Full name</Label>
+                <Input
+                  id="profile-name"
+                  value={name}
+                  onChange={(e) => {
+                    setProfileTouched(true);
+                    setName(e.target.value);
+                  }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="profile-email">Email</Label>
+                <Input
+                  id="profile-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setProfileTouched(true);
+                    setEmail(e.target.value);
+                  }}
+                />
+              </div>
             </div>
-            <div>
-              <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-          </div>
-          <Button onClick={saveProfile}>Save profile</Button>
+            <Button type="submit" disabled={!canSubmitProfile}>
+              Save profile
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
@@ -155,27 +196,56 @@ function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Lock className="h-4 w-4" /> Change Password</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <Label>Current password</Label>
-            <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} />
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3">
+        <CardContent>
+          <form onSubmit={handlePasswordSubmit} className="space-y-3">
             <div>
-              <Label>New password</Label>
-              <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} />
+              <Label htmlFor="current-password">Current password</Label>
+              <Input
+                id="current-password"
+                type="password"
+                autoComplete="current-password"
+                value={current}
+                onChange={(e) => {
+                  setPasswordTouched(true);
+                  setCurrent(e.target.value);
+                }}
+              />
             </div>
-            <div>
-              <Label>Confirm new password</Label>
-              <Input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} />
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="new-password">New password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={next}
+                  onChange={(e) => {
+                    setPasswordTouched(true);
+                    setNext(e.target.value);
+                  }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="confirm-password">Confirm new password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPwd}
+                  onChange={(e) => {
+                    setPasswordTouched(true);
+                    setConfirmPwd(e.target.value);
+                  }}
+                />
+              </div>
             </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            New password must be at least 12 characters and include uppercase, lowercase, a number, and a special character.
-          </p>
-          <Button onClick={savePassword} disabled={!current || !next || !confirmPwd}>
-            Update password
-          </Button>
+            <p className="text-xs text-muted-foreground">
+              New password must be at least 12 characters and include uppercase, lowercase, a number, and a special character.
+            </p>
+            <Button type="submit" disabled={!canSubmitPassword}>
+              Update password
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
