@@ -58,7 +58,7 @@ function LoginPage() {
             </div>
             <div className="text-center">
               <h1 className="text-2xl font-bold">CareerHub</h1>
-              <p className="text-xs text-muted-foreground">by CMH Cloud Marketing Hub</p>
+              <p className="text-xs text-muted-foreground">by Cloud Marketing Hub</p>
             </div>
           </div>
           <form onSubmit={submit} className="space-y-4">
