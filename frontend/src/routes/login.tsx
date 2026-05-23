@@ -53,8 +53,8 @@ function LoginPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardContent className="p-8 space-y-6">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-14 w-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center text-3xl font-extrabold shadow-lg">
-              C
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-background p-1.5 shadow-md ring-1 ring-border/50">
+              <img src="/logo.png" alt="CareerHub" className="h-full w-full object-contain" />
             </div>
             <div className="text-center">
               <h1 className="text-2xl font-bold">CareerHub</h1>

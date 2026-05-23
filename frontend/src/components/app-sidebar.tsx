@@ -40,8 +40,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-base">
-            C
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-background p-1 shadow-sm ring-1 ring-border/50">
+            <img src="/logo.png" alt="CareerHub" className="h-full w-full object-contain" />
           </div>
           <div className="flex flex-col leading-tight group-data-[state=collapsed]:hidden">
             <span className="font-bold text-foreground">CareerHub</span>
