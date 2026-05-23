@@ -67,6 +67,18 @@ class PromotionController extends Controller
             'status'     => 'required|in:Active,Pending,Completed,Archived',
         ]);
 
+        $normalizedName = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $validated['name']) ?? $validated['name']));
+        $duplicate = Promotion::query()
+            ->whereNull('deleted_at')
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedName])
+            ->exists();
+
+        if ($duplicate) {
+            return response()->json([
+                'message' => 'A promotion with this name already exists.',
+            ], 422);
+        }
+
         // Auto-generate promo_code like PROMO-2026-001
         $year = date('Y');
         $count = Promotion::withTrashed()

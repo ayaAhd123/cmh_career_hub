@@ -15,6 +15,13 @@ import { toast } from "sonner";
 import { AddPromotionDialog } from "@/components/add-promotion-dialog";
 import { ReminderContextBanner } from "@/components/reminder-context-banner";
 import {
+  KpiSkeletonGrid,
+  ChartSkeleton,
+  EmptyStateMessage,
+  ErrorStateMessage,
+  PromotionCardSkeletonGrid,
+} from "@/components/loading-states";
+import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip,
   ResponsiveContainer, Legend, Label as RechartsLabel
 } from "recharts";
@@ -89,31 +96,36 @@ function DashboardPage() {
   const [chartMode, setChartMode] = useState<"volume" | "performance">("volume");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadStats = () => {
     let cancelled = false;
+    setStatsLoading(true);
+    setStatsError(null);
 
-    const loadStats = async () => {
-      setStatsLoading(true);
+    void (async () => {
       try {
         const data = await fetchDashboardStats(timeRange, customStart, customEnd);
         if (!cancelled) setStats(data);
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to load dashboard stats", err);
-          toast.error("Failed to load dashboard statistics");
+          const message =
+            err instanceof Error ? err.message : "Failed to load dashboard statistics";
+          setStatsError(message);
+          toast.error(message);
         }
       } finally {
         if (!cancelled) setStatsLoading(false);
       }
-    };
-
-    void loadStats();
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [timeRange, customStart, customEnd]);
+  };
+
+  useEffect(() => loadStats(), [timeRange, customStart, customEnd]);
 
   const kpis = stats?.kpis ?? {
     totalPromos: 0,
@@ -192,13 +204,19 @@ function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <KpiCard label="Total Promotions" value={statsLoading ? "…" : kpis.totalPromos} icon={GraduationCap} />
-        <KpiCard label="Active Candidates" value={statsLoading ? "…" : kpis.activeCands} icon={Users} tone="success" />
-        <KpiCard label="Global Pass Rate" value={statsLoading ? "…" : `${kpis.passRate}%`} icon={TrendingUp} tone="success" hint="Avg. score ≥ 2.5/5" />
-        <KpiCard label="Global Avg. Score" value={statsLoading ? "…" : `${kpis.globalAvg}`} icon={Activity} tone="primary" hint="Out of 5" />
-        <KpiCard label="Global Turnover" value={statsLoading ? "…" : `${kpis.turnover}%`} icon={AlertTriangle} tone="warning" hint="Dismissed or dropped" />
-      </div>
+      {statsLoading ? (
+        <KpiSkeletonGrid count={5} />
+      ) : statsError ? (
+        <ErrorStateMessage description={statsError} onRetry={loadStats} />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <KpiCard label="Total Promotions" value={kpis.totalPromos} icon={GraduationCap} />
+          <KpiCard label="Active Candidates" value={kpis.activeCands} icon={Users} tone="success" />
+          <KpiCard label="Global Pass Rate" value={`${kpis.passRate}%`} icon={TrendingUp} tone="success" hint="Avg. score ≥ 2.5/5" />
+          <KpiCard label="Global Avg. Score" value={`${kpis.globalAvg}`} icon={Activity} tone="primary" hint="Out of 5" />
+          <KpiCard label="Global Turnover" value={`${kpis.turnover}%`} icon={AlertTriangle} tone="warning" hint="Dismissed or dropped" />
+        </div>
+      )}
 
       {/* Analytics Header & Toggle */}
       <div className="flex items-center justify-between mt-8 mb-2 flex-wrap gap-4">
@@ -228,9 +246,11 @@ function DashboardPage() {
           </CardHeader>
           <CardContent>
             {statsLoading ? (
-              <EmptyState title="Loading" description="Fetching dashboard statistics..." icon={BarChart3} />
+              <ChartSkeleton />
+            ) : statsError ? (
+              <ErrorStateMessage description={statsError} onRetry={loadStats} />
             ) : !hasCandidateData ? (
-              <EmptyState title="No Data" description="Not enough candidate data." icon={BarChart3} />
+              <EmptyStateMessage title="No data yet" description="Add candidates to a promotion to see education breakdowns here." icon={BarChart3} />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={eduData} barCategoryGap="30%">
@@ -263,9 +283,11 @@ function DashboardPage() {
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center">
             {statsLoading ? (
-              <EmptyState title="Loading" description="Fetching dashboard statistics..." icon={PieChartIcon} />
+              <ChartSkeleton />
+            ) : statsError ? (
+              <ErrorStateMessage description={statsError} onRetry={loadStats} />
             ) : genderData.length === 0 ? (
-              <EmptyState title="No Data" description="Not enough candidate data." icon={PieChartIcon} />
+              <EmptyStateMessage title="No data yet" description="Gender breakdown appears once candidates are added." icon={PieChartIcon} />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
@@ -311,9 +333,11 @@ function DashboardPage() {
           </CardHeader>
           <CardContent>
             {statsLoading ? (
-              <EmptyState title="Loading" description="Fetching dashboard statistics..." icon={BarChart3} />
+              <ChartSkeleton />
+            ) : statsError ? (
+              <ErrorStateMessage description={statsError} onRetry={loadStats} />
             ) : !hasCandidateData ? (
-              <EmptyState title="No Data" description="Not enough candidate data." icon={BarChart3} />
+              <EmptyStateMessage title="No data yet" description="Age distribution appears once candidates are added." icon={BarChart3} />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={ageData} barCategoryGap="30%">
@@ -355,19 +379,21 @@ function DashboardPage() {
         </CardHeader>
         <CardContent>
           {statsLoading ? (
-            <div className="py-12">
-              <EmptyState
-                title="Loading"
-                description="Fetching active promotions..."
-              />
+            <div className="py-4">
+              <PromotionCardSkeletonGrid count={3} />
             </div>
+          ) : statsError ? (
+            <ErrorStateMessage description={statsError} onRetry={loadStats} />
           ) : activeCohorts.length === 0 ? (
-            <div className="py-12">
-              <EmptyState 
-                title="No Active Promotions Found" 
-                description="There are no active promotions in the selected time range." 
-              />
-            </div>
+            <EmptyStateMessage
+              title="No active promotions"
+              description="Create a promotion or widen the time filter to see cohorts here."
+              action={
+                <Button asChild size="sm">
+                  <Link to="/promotions">Go to promotions</Link>
+                </Button>
+              }
+            />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {activeCohorts.map((p) => (

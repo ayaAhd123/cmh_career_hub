@@ -59,6 +59,17 @@ import { AddCandidateDialog } from "@/components/add-candidate-dialog";
 import { EditCandidateDialog } from "@/components/edit-candidate-dialog";
 import { ReminderContextBanner } from "@/components/reminder-context-banner";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { KpiSkeletonGrid, TableRowSkeleton } from "@/components/loading-states";
+import {
   exportPromotionPDF, exportPromotionExcel, exportPromotionHTML,
 } from "@/lib/exports";
 import type { Candidate } from "@/lib/types";
@@ -172,6 +183,8 @@ function PromotionDetail() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [candidates, setCandidates] = useState<CandidateListItem[]>([]);
   const [candidatesLoading, setCandidatesLoading] = useState(true);
+  const [deleteCandidate, setDeleteCandidate] = useState<CandidateListItem | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editingCandidate = candidates.find((c) => c.id === editingCandidateId) ?? null;
@@ -377,11 +390,13 @@ function PromotionDetail() {
     await refreshData();
   };
 
-  const handleDelete = async (candidate: CandidateListItem) => {
-    if (!confirm(`Delete candidate ${candidate.firstName} ${candidate.lastName}?`)) return;
+  const handleDelete = async () => {
+    if (!deleteCandidate) return;
     try {
-      await deleteCandidateApi(candidate.id);
+      await deleteCandidateApi(deleteCandidate.id);
       toast.success("Candidate deleted");
+      setDeleteCandidate(null);
+      setDeleteConfirmText("");
       await refreshData();
     } catch (err) {
       console.error(err);
@@ -505,12 +520,16 @@ function PromotionDetail() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total Candidates" value={statsLoading ? "…" : kpis.totalCandidates} icon={Users} />
-        <KpiCard label="Pass Rate" value={statsLoading ? "…" : `${kpis.passRate}%`} icon={TrendingUp} tone="success" />
-        <KpiCard label="Average Score" value={statsLoading ? "…" : kpis.avgScore.toFixed(2)} icon={Star} hint="/ 5" />
-        <KpiCard label="At Risk" value={statsLoading ? "…" : kpis.atRisk} icon={AlertTriangle} tone="warning" />
-      </div>
+      {statsLoading ? (
+        <KpiSkeletonGrid count={4} />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label="Total Candidates" value={kpis.totalCandidates} icon={Users} />
+          <KpiCard label="Pass Rate" value={`${kpis.passRate}%`} icon={TrendingUp} tone="success" />
+          <KpiCard label="Average Score" value={kpis.avgScore.toFixed(2)} icon={Star} hint="/ 5" />
+          <KpiCard label="At Risk" value={kpis.atRisk} icon={AlertTriangle} tone="warning" />
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-lg">Top 3 Performers</CardTitle></CardHeader>
@@ -740,7 +759,11 @@ function PromotionDetail() {
                   </thead>
                   <tbody>
                     {candidatesLoading ? (
-                      <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Loading candidates…</td></tr>
+                      <tr>
+                        <td colSpan={7} className="py-4">
+                          <TableRowSkeleton rows={5} cols={6} />
+                        </td>
+                      </tr>
                     ) : candidates.map((c) => (
                         <tr
                           key={c.id}
@@ -774,7 +797,8 @@ function PromotionDetail() {
                               aria-label="Delete candidate"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                void handleDelete(c);
+                                setDeleteCandidate(c);
+                                setDeleteConfirmText("");
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -805,6 +829,46 @@ function PromotionDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog
+        open={!!deleteCandidate}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteCandidate(null);
+            setDeleteConfirmText("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete candidate?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteCandidate?.firstName} {deleteCandidate?.lastName}.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Label htmlFor="promo-delete-confirm">Type DELETE to confirm</Label>
+            <Input
+              id="promo-delete-confirm"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
+              disabled={deleteConfirmText !== "DELETE"}
+              onClick={() => void handleDelete()}
+            >
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

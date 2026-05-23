@@ -51,6 +51,16 @@ class PromotionSeeder extends Seeder
                 'status' => 'Active',
             ]
         );
+
+        Promotion::updateOrCreate(
+            ['promo_code' => 'UIUXMASTER'],
+            [
+                'name' => 'UI/UX Masterclass',
+                'start_date' => now()->addDays(4)->toDateString(),
+                'end_date' => now()->addDays(39)->toDateString(),
+                'status' => 'Active',
+            ]
+        );
     }
 }
 

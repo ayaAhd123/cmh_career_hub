@@ -43,6 +43,7 @@ import {
 import { exportCandidatesExcel } from "@/lib/candidate-export";
 import { formatGenderDisplay, type ExportLocale } from "@/lib/export-i18n";
 import { ReminderContextBanner } from "@/components/reminder-context-banner";
+import { TableRowSkeleton, EmptyStateMessage, ErrorStateMessage } from "@/components/loading-states";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/candidates/")({
@@ -75,6 +76,7 @@ function AllCandidates() {
 
   const [candidates, setCandidates] = useState<CandidateListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | CandidateStatus>(() =>
     search.status && STATUS_OPTIONS.includes(search.status as CandidateStatus)
@@ -112,12 +114,15 @@ function AllCandidates() {
 
   const loadCandidates = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetchCandidates(apiFilters);
       setCandidates(response.data);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load candidates");
+      const message = err instanceof Error ? err.message : "Failed to load candidates";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -409,17 +414,25 @@ function AllCandidates() {
         </CardHeader>
         <CardContent className="overflow-x-auto pt-4">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
-              <p className="font-medium">Loading candidates…</p>
-            </div>
+            <TableRowSkeleton rows={8} cols={8} />
+          ) : loadError ? (
+            <ErrorStateMessage description={loadError} onRetry={() => void loadCandidates()} />
           ) : candidates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
-              <p className="font-medium">No candidates found</p>
-              <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
-              {hasFilters && (
-                <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>Clear filters</Button>
-              )}
-            </div>
+            <EmptyStateMessage
+              title="No candidates found"
+              description={
+                hasFilters
+                  ? "No one matches your filters. Try clearing them or changing the search."
+                  : "Add candidates from a promotion page to see them listed here."
+              }
+              action={
+                hasFilters ? (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                ) : undefined
+              }
+            />
           ) : (
             <table className="w-full text-sm">
               <thead>

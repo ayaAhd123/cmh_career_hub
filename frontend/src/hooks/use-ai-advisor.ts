@@ -2,15 +2,12 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { categoryFor, overallAverage } from "@/lib/calc";
 import type { EducationLevel, Category } from "@/lib/types";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+import { sendAiChat } from "@/lib/ai-api";
 
 export function useAIAdvisor() {
   const candidates = useStore((s) => s.candidates);
   const promotions = useStore((s) => s.promotions);
-  
+
   const [messages, setMessages] = useState<{ role: "ai" | "user"; content: string }[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -18,7 +15,11 @@ export function useAIAdvisor() {
 
   const analytics = useMemo(() => {
     const active = candidates.filter((c) => c.status === "Active" && !c.archived);
-    const graduated = candidates.filter((c) => !c.archived && (c.status === "Graduated" || (overallAverage(c) >= 10 && c.status !== "Active")));
+    const graduated = candidates.filter(
+      (c) =>
+        !c.archived &&
+        (c.status === "Graduated" || (overallAverage(c) >= 10 && c.status !== "Active")),
+    );
     const terminated = candidates.filter((c) => c.status === "Terminated" && !c.archived);
     const dismissed = candidates.filter((c) => c.status === "Dismissed" && !c.archived);
     const total = candidates.filter((c) => !c.archived);
@@ -39,7 +40,8 @@ export function useAIAdvisor() {
     };
 
     total.forEach((c) => {
-      educationDistribution[c.educationLevel as EducationLevel] = (educationDistribution[c.educationLevel as EducationLevel] || 0) + 1;
+      educationDistribution[c.educationLevel as EducationLevel] =
+        (educationDistribution[c.educationLevel as EducationLevel] || 0) + 1;
       const cat = categoryFor(overallAverage(c));
       categoryDistribution[cat] = (categoryDistribution[cat] || 0) + 1;
 
@@ -55,10 +57,17 @@ export function useAIAdvisor() {
       skillsSum.speed += c.skills.work.speed;
     });
 
-    const avgSkills = total.length > 0 ? Object.fromEntries(Object.entries(skillsSum).map(([k, v]) => [k, (v / total.length).toFixed(2)])) : skillsSum;
+    const avgSkills =
+      total.length > 0
+        ? Object.fromEntries(
+            Object.entries(skillsSum).map(([k, v]) => [k, (v / total.length).toFixed(2)]),
+          )
+        : skillsSum;
 
-    const successRate = total.length > 0 ? ((graduated.length / total.length) * 100).toFixed(1) : 0;
-    const terminationRate = total.length > 0 ? ((terminated.length / total.length) * 100).toFixed(1) : 0;
+    const successRate =
+      total.length > 0 ? ((graduated.length / total.length) * 100).toFixed(1) : 0;
+    const terminationRate =
+      total.length > 0 ? ((terminated.length / total.length) * 100).toFixed(1) : 0;
 
     const topSkills = Object.entries(avgSkills)
       .sort(([, a], [, b]) => parseFloat(b as string) - parseFloat(a as string))
@@ -89,32 +98,18 @@ export function useAIAdvisor() {
 
   const generateAIResponse = async (query: string): Promise<string> => {
     try {
-      if (!genAI) {
-        console.error("AI key missing: set VITE_GOOGLE_API_KEY in frontend/.env");
-        return "AI is not configured. Please set VITE_GOOGLE_API_KEY in your frontend .env file.";
-      }
-
-      const prompt = `You are an AI HR Advisor for CareerHub.
-Here is the current analytics data of our candidates:
-${JSON.stringify(analytics, null, 2)}
-
-Here is the list of promotions:
-${JSON.stringify(promotions, null, 2)}
-
-Here is the list of candidates:
-${JSON.stringify(candidates, null, 2)}
-
-The user is asking: "${query}"
-
-Provide a helpful, concise, and data-driven response based strictly on the provided data. Use markdown formatting.`;
-
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return response.text();
+      return await sendAiChat(query, {
+        analytics,
+        promotions,
+        candidates,
+      });
     } catch (error) {
       console.error("AI Generation Error:", error);
-      return "Sorry, I am currently unable to process your request. Please check your API key or try again later.";
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "Sorry, I am currently unable to process your request. Please try again later.";
+      return msg;
     }
   };
 
@@ -129,7 +124,7 @@ Provide a helpful, concise, and data-driven response based strictly on the provi
     setIsTyping(true);
 
     const aiResponse = await generateAIResponse(userMessage);
-    
+
     setMessages((prev) => [...prev, { role: "ai", content: aiResponse }]);
     setIsTyping(false);
   };

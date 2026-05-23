@@ -27,6 +27,7 @@ import {
   isThisWeek, isThisMonth, isThisYear, subWeeks, subMonths, subYears, isSameWeek
 } from "date-fns";
 import { AddPromotionDialog } from "@/components/add-promotion-dialog";
+import { PromotionCardSkeletonGrid, EmptyStateMessage } from "@/components/loading-states";
 
 export const Route = createFileRoute("/promotions/archived")({
   head: () => ({
@@ -93,6 +94,7 @@ function ArchivedPromotions() {
   const candidates = useStore((s) => s.candidates);
   const archivedPromotions = useStore((s) => s.archivedPromotions);
   const archivedPromotionsLoaded = useStore((s) => s.archivedPromotionsLoaded);
+  const archivedPromotionsLoading = useStore((s) => s.archivedPromotionsLoading);
   const loadArchivedPromotions = useStore((s) => s.loadArchivedPromotions);
   const updatePromotion = useStore((s) => s.updatePromotion);
   const restorePromotion = useStore((s) => s.restorePromotion);
@@ -106,6 +108,7 @@ function ArchivedPromotions() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [restoreId, setRestoreId] = useState<string | null>(null);
   const timeRange = useStore((s) => s.globalTimeRange);
   const customStart = useStore((s) => s.globalCustomStart);
   const customEnd = useStore((s) => s.globalCustomEnd);
@@ -266,10 +269,16 @@ function ArchivedPromotions() {
       </div>
 
       {/* Grid List */}
-      {filteredPromotions.length === 0 ? (
-        <EmptyState
-          title="No promotions found"
-          description={searchQuery || statusFilter !== "All" ? "Try adjusting your search or filters to find what you're looking for." : "You haven't archived any promotions yet."}
+      {archivedPromotionsLoading && !archivedPromotionsLoaded ? (
+        <PromotionCardSkeletonGrid count={6} />
+      ) : filteredPromotions.length === 0 ? (
+        <EmptyStateMessage
+          title="No archived promotions"
+          description={
+            searchQuery || statusFilter !== "All"
+              ? "Try adjusting your search or filters."
+              : "When you archive a promotion, it will appear here."
+          }
         />
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -308,14 +317,7 @@ function ArchivedPromotions() {
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem
                             className="cursor-pointer"
-                            onClick={async () => {
-                              try {
-                                await restorePromotion(p.id);
-                                toast.success("Promotion restored with its candidates");
-                              } catch (e) {
-                                toast.error((e as Error).message || "Failed to restore");
-                              }
-                            }}
+                            onClick={() => setRestoreId(p.id)}
                           >
                             <ArchiveRestore className="mr-2 h-4 w-4" /> Restore Promotion
                           </DropdownMenuItem>
@@ -380,6 +382,35 @@ function ArchivedPromotions() {
           })}
         </div>
       )}
+
+      <AlertDialog open={!!restoreId} onOpenChange={(open) => !open && setRestoreId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore this promotion?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The promotion and its candidates will return to the active promotions list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="cursor-pointer"
+              onClick={async () => {
+                if (!restoreId) return;
+                try {
+                  await restorePromotion(restoreId);
+                  setRestoreId(null);
+                  toast.success("Promotion restored with its candidates");
+                } catch (e) {
+                  toast.error((e as Error).message || "Failed to restore");
+                }
+              }}
+            >
+              Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>

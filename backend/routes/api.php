@@ -11,12 +11,12 @@ use App\Http\Controllers\Api\V1\RemindersController;
 
 Route::prefix('v1')->group(function () {
     Route::get('health', [HealthController::class, 'index']);
-    Route::post('ai/analyze', [AiController::class, 'analyze']);
 
     // Auth
     Route::post('auth/login', [AuthController::class, 'login']);
 
     Route::middleware('auth:sanctum')->group(function () {
+        Route::post('ai/chat', [AiController::class, 'chat']);
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('auth/me', [AuthController::class, 'me']);
         Route::put('auth/profile', [AuthController::class, 'updateProfile']);
