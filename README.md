@@ -1,5 +1,7 @@
 # CMH_CAREER_HUB Monorepo
 
+> **Documentation complète** : [docs/](./docs/) — diagrammes UML, documentation officielle, référence API et ressources techniques.
+
 This repository is now organized as a monorepo with:
 
 - `frontend/` — existing React + TypeScript app
