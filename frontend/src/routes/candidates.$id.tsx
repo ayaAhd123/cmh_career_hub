@@ -700,7 +700,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
-      <p className="font-medium">{value}</p>
+      <div className="font-medium">{value}</div>
     </div>
   );
 }

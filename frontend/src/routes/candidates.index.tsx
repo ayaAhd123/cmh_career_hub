@@ -41,7 +41,7 @@ import {
   downloadBlob,
 } from "@/lib/candidate-api";
 import { dispatchRemindersRefresh } from "@/lib/reminders-api";
-import { exportCandidatesExcel } from "@/lib/candidate-export";
+import { exportCandidatesExcel, exportCandidatesPDF } from "@/lib/candidate-export";
 import { formatGenderDisplay, type ExportLocale } from "@/lib/export-i18n";
 import { ReminderContextBanner } from "@/components/reminder-context-banner";
 import { TableRowSkeleton, EmptyStateMessage, ErrorStateMessage } from "@/components/loading-states";
@@ -158,11 +158,17 @@ function AllCandidates() {
     setSortBy("avg_desc");
   };
 
-  const handleExport = async (format: "xlsx" | "json" | "html") => {
+  const handleExport = async (format: "xlsx" | "json" | "html" | "pdf") => {
     try {
+      if (candidates.length === 0) return;
+
       if (format === "xlsx") {
-        if (candidates.length === 0) return;
-        exportCandidatesExcel(candidates, exportLang);
+        exportCandidatesExcel(candidates, exportLang, "all");
+        return;
+      }
+
+      if (format === "pdf") {
+        exportCandidatesPDF(candidates, exportLang, "all");
         return;
       }
 
@@ -247,6 +253,10 @@ function AllCandidates() {
               </div>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => void handleExport("pdf")}>
+              <FileText className="h-4 w-4 text-red-600" />
+              Export as PDF
+            </DropdownMenuItem>
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => void handleExport("xlsx")}>
               <Sheet className="h-4 w-4 text-emerald-600" />
               Export as Excel

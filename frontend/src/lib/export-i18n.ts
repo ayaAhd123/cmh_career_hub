@@ -6,6 +6,7 @@ const strings = {
   en: {
     sheetName: "Candidates",
     allCandidates: "All Candidates",
+    graduates: "Graduates",
     exportedMeta: (date: string) =>
       `Exported ${date} · Grouped by promotion · Cloud Marketing Hub`,
     promoTitle: (name: string, count: number) =>
@@ -47,6 +48,7 @@ const strings = {
   fr: {
     sheetName: "Candidats",
     allCandidates: "Tous les candidats",
+    graduates: "Diplômés",
     exportedMeta: (date: string) =>
       `Exporté le ${date} · Regroupé par promotion · Cloud Marketing Hub`,
     promoTitle: (name: string, count: number) =>

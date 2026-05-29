@@ -16,7 +16,7 @@ import {
   exportCandidatesApi,
   downloadBlob,
 } from "@/lib/candidate-api";
-import { exportCandidatesExcel } from "@/lib/candidate-export";
+import { exportCandidatesExcel, exportCandidatesPDF } from "@/lib/candidate-export";
 import type { ExportLocale } from "@/lib/export-i18n";
 import { Award, Download, Filter, Search, X, ChevronDown, Pencil, Trash2, FileText, FileCode, Sheet } from "lucide-react";
 import {
@@ -116,11 +116,17 @@ function Graduates() {
     setSelectedCategory("All");
   };
 
-  const handleExport = async (format: "xlsx" | "json" | "html") => {
+  const handleExport = async (format: "xlsx" | "json" | "html" | "pdf") => {
     try {
+      if (candidates.length === 0) return;
+
       if (format === "xlsx") {
-        if (candidates.length === 0) return;
-        exportCandidatesExcel(candidates, exportLang);
+        exportCandidatesExcel(candidates, exportLang, "graduates");
+        return;
+      }
+
+      if (format === "pdf") {
+        exportCandidatesPDF(candidates, exportLang, "graduates");
         return;
       }
 
@@ -204,6 +210,10 @@ function Graduates() {
               </div>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => void handleExport("pdf")}>
+              <FileText className="h-4 w-4 text-red-600" />
+              Export as PDF
+            </DropdownMenuItem>
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => void handleExport("xlsx")}>
               <Sheet className="h-4 w-4 text-emerald-600" />
               Export as Excel
