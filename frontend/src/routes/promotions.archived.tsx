@@ -1,13 +1,15 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useStore } from "@/lib/store";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { showApiError } from "@/lib/api-error";
 import type { TimeRange } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/badges";
 import { formatDate, promotionProgress, promotionStatus, isWithinCustomRange } from "@/lib/calc";
-import { ArrowRight, Search, Inbox, SlidersHorizontal, Calendar, Check, X, PencilLine, ArrowLeft, MoreVertical, ArchiveRestore, Trash2 } from "lucide-react";
+import { ArrowRight, Search, Inbox, SlidersHorizontal, Calendar, Check, X, PencilLine, ArrowLeft, MoreVertical, ArchiveRestore, Trash2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -18,7 +20,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem, DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialog, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
@@ -91,23 +93,27 @@ function InlineEdit({ initialValue, onSave }: { initialValue: string; onSave: (v
 }
 
 function ArchivedPromotions() {
+  const navigate = useNavigate();
   const archivedPromotions = useStore((s) => s.archivedPromotions);
-  const archivedPromotionsLoaded = useStore((s) => s.archivedPromotionsLoaded);
   const archivedPromotionsLoading = useStore((s) => s.archivedPromotionsLoading);
+  const archivedPromotionsLoaded = useStore((s) => s.archivedPromotionsLoaded);
   const loadArchivedPromotions = useStore((s) => s.loadArchivedPromotions);
   const updatePromotion = useStore((s) => s.updatePromotion);
   const restorePromotion = useStore((s) => s.restorePromotion);
   const permanentDeletePromotion = useStore((s) => s.permanentDeletePromotion);
 
-  useEffect(() => {
-    if (!archivedPromotionsLoaded) void loadArchivedPromotions();
-  }, [archivedPromotionsLoaded, loadArchivedPromotions]);
-
-  // Filters state
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
+  useEffect(() => {
+    void loadArchivedPromotions({ search: debouncedSearch }).catch((err) =>
+      showApiError(err, "Failed to load archived promotions"),
+    );
+  }, [debouncedSearch, loadArchivedPromotions]);
   const [statusFilter, setStatusFilter] = useState("All");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [restoreId, setRestoreId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<"restore" | "delete" | null>(null);
   const timeRange = useStore((s) => s.globalTimeRange);
   const customStart = useStore((s) => s.globalCustomStart);
   const customEnd = useStore((s) => s.globalCustomEnd);
@@ -123,24 +129,31 @@ function ArchivedPromotions() {
   };
 
   const submitRestorePromotion = async () => {
-    if (!restoreId) return;
+    if (!restoreId || actionLoading) return;
+    setActionLoading("restore");
     try {
       await restorePromotion(restoreId);
       setRestoreId(null);
-      toast.success("Promotion restored with its candidates");
+      toast.success("Promotion restored — see it on the active promotions list");
+      navigate({ to: "/promotions" });
     } catch (e) {
-      toast.error((e as Error).message || "Failed to restore");
+      showApiError(e, "Failed to restore promotion");
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const submitPermanentDeletePromotion = async () => {
-    if (!deleteId) return;
+    if (!deleteId || actionLoading) return;
+    setActionLoading("delete");
     try {
       await permanentDeletePromotion(deleteId);
       setDeleteId(null);
       toast.success("Promotion permanently deleted");
     } catch (e) {
-      toast.error((e as Error).message || "Failed to delete");
+      showApiError(e, "Failed to delete promotion");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -190,11 +203,6 @@ function ArchivedPromotions() {
         }
       }
 
-      // Search filter
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = p.name.toLowerCase().includes(searchLower) || p.id.toLowerCase().includes(searchLower);
-      if (!matchesSearch) return false;
-
       // Status filter
       if (statusFilter !== "All") {
         const status = promotionStatus(p);
@@ -203,7 +211,7 @@ function ArchivedPromotions() {
 
       return true;
     });
-  }, [archivedPromotions, searchQuery, statusFilter, timeRange, customStart, customEnd]);
+  }, [archivedPromotions, statusFilter, timeRange, customStart, customEnd]);
 
   return (
     <div className="space-y-6">
@@ -230,8 +238,11 @@ function ArchivedPromotions() {
             className="pl-9 pr-9 bg-background"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-busy={archivedPromotionsLoading}
           />
-          {searchQuery && (
+          {archivedPromotionsLoading ? (
+            <div className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
+          ) : searchQuery ? (
             <Button
               variant="ghost"
               size="icon"
@@ -240,11 +251,11 @@ function ArchivedPromotions() {
             >
               <X className="h-4 w-4" />
             </Button>
-          )}
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto lg:justify-end">
-          {(timeRange !== 'all' || statusFilter !== 'All' || searchQuery !== '') && (
+          {(timeRange !== "all" || statusFilter !== "All" || searchQuery !== "" || customStart !== "" || customEnd !== "") && (
             <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-muted-foreground hover:text-foreground shrink-0">
               Clear
             </Button>
@@ -298,7 +309,7 @@ function ArchivedPromotions() {
         <EmptyStateMessage
           title="No archived promotions"
           description={
-            searchQuery || statusFilter !== "All"
+            debouncedSearch || statusFilter !== "All" || timeRange !== "all"
               ? "Try adjusting your search or filters."
               : "When you archive a promotion, it will appear here."
           }
@@ -404,14 +415,13 @@ function ArchivedPromotions() {
         </div>
       )}
 
-      <AlertDialog open={!!restoreId} onOpenChange={(open) => !open && setRestoreId(null)}>
+      <AlertDialog
+        open={!!restoreId}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) setRestoreId(null);
+        }}
+      >
         <AlertDialogContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submitRestorePromotion();
-            }}
-          >
           <AlertDialogHeader>
             <AlertDialogTitle>Restore this promotion?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -419,24 +429,35 @@ function ArchivedPromotions() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel type="button" className="cursor-pointer">Cancel</AlertDialogCancel>
-            <AlertDialogAction type="submit" className="cursor-pointer">
-              Restore
-            </AlertDialogAction>
+            <AlertDialogCancel type="button" className="cursor-pointer" disabled={actionLoading === "restore"}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              className="cursor-pointer"
+              disabled={actionLoading === "restore"}
+              onClick={() => void submitRestorePromotion()}
+            >
+              {actionLoading === "restore" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Restoring…
+                </>
+              ) : (
+                "Restore"
+              )}
+            </Button>
           </AlertDialogFooter>
-          </form>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) setDeleteId(null);
+        }}
+      >
         <AlertDialogContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submitPermanentDeletePromotion();
-            }}
-          >
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -444,15 +465,25 @@ function ArchivedPromotions() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel type="button" className="cursor-pointer">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              type="submit"
-              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            <AlertDialogCancel type="button" className="cursor-pointer" disabled={actionLoading === "delete"}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              className="cursor-pointer"
+              disabled={actionLoading === "delete"}
+              onClick={() => void submitPermanentDeletePromotion()}
             >
-              Delete Promotion
-            </AlertDialogAction>
+              {actionLoading === "delete" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting…
+                </>
+              ) : (
+                "Delete Promotion"
+              )}
+            </Button>
           </AlertDialogFooter>
-          </form>
         </AlertDialogContent>
       </AlertDialog>
     </div>

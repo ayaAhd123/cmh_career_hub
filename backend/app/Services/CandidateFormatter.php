@@ -152,6 +152,7 @@ class CandidateFormatter
                 'id' => $module->module_order,
                 'name' => $module->name,
                 'score' => $grade ? (float) $grade->score : 0,
+                'hasGrade' => $grade !== null,
             ];
         })->all();
     }

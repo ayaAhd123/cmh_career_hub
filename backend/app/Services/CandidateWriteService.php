@@ -97,12 +97,22 @@ class CandidateWriteService
 
         foreach ($modules as $row) {
             $moduleOrder = (int) ($row['id'] ?? 0);
-            $score = (float) ($row['score'] ?? 0);
             $module = $promotionModules->firstWhere('module_order', $moduleOrder);
 
             if (! $module) {
                 continue;
             }
+
+            if (! array_key_exists('score', $row) || $row['score'] === null || $row['score'] === '') {
+                ModuleGrade::query()
+                    ->where('candidate_id', $candidate->id)
+                    ->where('module_id', $module->id)
+                    ->delete();
+
+                continue;
+            }
+
+            $score = (float) $row['score'];
 
             ModuleGrade::updateOrCreate(
                 [

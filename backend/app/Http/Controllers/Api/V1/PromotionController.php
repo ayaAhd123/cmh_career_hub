@@ -158,7 +158,11 @@ class PromotionController extends Controller
      */
     public function destroy(Promotion $promotion)
     {
-        // Soft delete only — linked candidates stay in the database for restore.
+        // Soft delete — same archived list as Archive; candidates stay for restore.
+        if ($promotion->status !== 'Archived') {
+            $promotion->status = 'Archived';
+            $promotion->save();
+        }
         $promotion->delete();
 
         return response()->noContent();
@@ -174,10 +178,15 @@ class PromotionController extends Controller
         }
 
         $promotion->restore();
-        $promotion->status = 'Active';
-        $promotion->save();
+        $promotion->forceFill(['status' => 'Active'])->save();
 
-        return response()->json($this->formatPromotion($promotion->fresh()));
+        return response()->json(
+            $this->formatPromotionWithStats($promotion->fresh()->load([
+                'candidates' => fn ($q) => $q
+                    ->where('state', '!=', 'Archived')
+                    ->with(['skills', 'moduleGrades']),
+            ]))
+        );
     }
 
     /**

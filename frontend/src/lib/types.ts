@@ -37,6 +37,8 @@ export interface ModuleScore {
   id: number;       // 1..5
   name: string;
   score: number;    // /20
+  /** False when no grade row exists in the database yet. */
+  hasGrade?: boolean;
 }
 
 export type Gender = "Homme" | "Femme";

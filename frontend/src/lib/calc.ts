@@ -10,8 +10,11 @@ export const workAvg = (w: WorkSkills): number =>
 export const skillsAvg = (s: Skills): number =>
   (disciplineAvg(s.discipline) + workAvg(s.work)) / 2;
 
-export const testsAvg = (modules: ModuleScore[]): number =>
-  modules.length === 0 ? 0 : modules.reduce((a, m) => a + (m.score || 0), 0) / modules.length;
+export const testsAvg = (modules: ModuleScore[]): number => {
+  const graded = modules.filter((m) => m.hasGrade);
+  if (graded.length === 0) return 0;
+  return graded.reduce((a, m) => a + m.score, 0) / graded.length;
+};
 
 export const overallAverage = (c: Candidate & { avgScore?: number }): number => {
   if (typeof c.avgScore === "number") {

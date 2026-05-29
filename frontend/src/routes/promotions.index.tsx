@@ -278,9 +278,9 @@ function PromotionsList() {
   }, [promotions, statusFilter, timeRange, customStart, customEnd, sortBy]);
 
   // Reset page when filters change
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
-  }, [filteredPromotions]);
+  }, [statusFilter, timeRange, customStart, customEnd, sortBy, debouncedSearch]);
 
   const itemsPerPage = 9;
   const totalPages = Math.ceil(filteredPromotions.length / itemsPerPage);

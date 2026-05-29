@@ -37,7 +37,8 @@ const apiFetch = async (path: string, options: RequestInit = {}) => {
   return data;
 };
 
-const promotionDbId = (promo: Promotion) => promo.dbId ?? promo.id;
+/** Public promo code used in URLs and UI (`Promotion.id`). */
+const promotionRouteId = (promo: Promotion) => encodeURIComponent(promo.id);
 
 /* ─── Types ─── */
 interface State {
@@ -55,7 +56,7 @@ interface State {
   setGlobalTimeRange: (range: TimeRange) => void;
   setGlobalCustomStart: (date: string) => void;
   setGlobalCustomEnd: (date: string) => void;
-  clearUiFilters: () => void;
+  clearGlobalFilters: () => void;
 
   loadPromotions: (opts?: { search?: string }) => Promise<void>;
   loadArchivedPromotions: (opts?: { search?: string }) => Promise<void>;
@@ -79,8 +80,6 @@ interface State {
   archiveCandidate: (id: string) => void;
   restoreCandidate: (id: string) => void;
   hardDeleteCandidate: (id: string) => void;
-
-  clearUiFilters: () => void;
 }
 
 const newCandidate = (
@@ -121,8 +120,6 @@ export const useStore = create<State>()((set, get) => ({
 
   loadPromotions: async (opts) => {
     const search = opts?.search?.trim() ?? "";
-    if (!search && get().promotionsLoaded) return;
-
     const params = search ? `?search=${encodeURIComponent(search)}` : "";
     set({ promotionsLoading: true });
     try {
@@ -138,8 +135,6 @@ export const useStore = create<State>()((set, get) => ({
 
   loadArchivedPromotions: async (opts) => {
     const search = opts?.search?.trim() ?? "";
-    if (!search && get().archivedPromotionsLoaded) return;
-
     const params = search ? `?search=${encodeURIComponent(search)}` : "";
     set({ archivedPromotionsLoading: true });
     try {
@@ -180,7 +175,7 @@ export const useStore = create<State>()((set, get) => ({
     }
     if (patch.status) body.status = patch.status;
 
-    const updated: Promotion = await apiFetch(`/promotions/${promotionDbId(promo)}`, {
+    const updated: Promotion = await apiFetch(`/promotions/${promotionRouteId(promo)}`, {
       method: "PUT",
       body: JSON.stringify(body),
     });
@@ -194,9 +189,9 @@ export const useStore = create<State>()((set, get) => ({
 
   archivePromotion: async (id) => {
     const promo = findPromotion(get, id);
-    if (!promo) return;
+    if (!promo) throw new Error("Promotion not found");
 
-    await apiFetch(`/promotions/${promotionDbId(promo)}/archive`, {
+    await apiFetch(`/promotions/${promotionRouteId(promo)}/archive`, {
       method: "POST",
       body: JSON.stringify({ confirm_one: true, confirm_two: true }),
     });
@@ -205,13 +200,14 @@ export const useStore = create<State>()((set, get) => ({
       promotions: s.promotions.filter((p) => p.id !== id),
     }));
     await get().loadArchivedPromotions();
+    await get().loadPromotions();
   },
 
   restorePromotion: async (id) => {
     const promo = findPromotion(get, id);
-    if (!promo) return;
+    if (!promo) throw new Error("Promotion not found");
 
-    const restored: Promotion = await apiFetch(`/promotions/${promotionDbId(promo)}/restore`, {
+    const restored: Promotion = await apiFetch(`/promotions/${promotionRouteId(promo)}/restore`, {
       method: "POST",
     });
 
@@ -219,25 +215,26 @@ export const useStore = create<State>()((set, get) => ({
       archivedPromotions: s.archivedPromotions.filter((p) => p.id !== id),
       promotions: [restored, ...s.promotions.filter((p) => p.id !== id)],
     }));
+    await Promise.all([get().loadPromotions(), get().loadArchivedPromotions()]);
   },
 
   deletePromotion: async (id) => {
     const promo = findPromotion(get, id);
-    if (!promo) return;
+    if (!promo) throw new Error("Promotion not found");
 
-    await apiFetch(`/promotions/${promotionDbId(promo)}`, { method: "DELETE" });
+    await apiFetch(`/promotions/${promotionRouteId(promo)}`, { method: "DELETE" });
 
     set((s) => ({
       promotions: s.promotions.filter((p) => p.id !== id),
     }));
-    await get().loadArchivedPromotions();
+    await Promise.all([get().loadArchivedPromotions(), get().loadPromotions()]);
   },
 
   permanentDeletePromotion: async (id) => {
     const promo = findPromotion(get, id);
-    if (!promo) return;
+    if (!promo) throw new Error("Promotion not found");
 
-    await apiFetch(`/promotions/${promotionDbId(promo)}/force-delete`, {
+    await apiFetch(`/promotions/${promotionRouteId(promo)}/force-delete`, {
       method: "DELETE",
       body: JSON.stringify({ confirm_one: true, confirm_two: true }),
     });
@@ -246,6 +243,7 @@ export const useStore = create<State>()((set, get) => ({
       archivedPromotions: s.archivedPromotions.filter((p) => p.id !== id),
       candidates: s.candidates.filter((c) => c.promotionId !== id),
     }));
+    await get().loadArchivedPromotions();
   },
 
   addCandidate: (data) => {
@@ -338,10 +336,4 @@ export const useStore = create<State>()((set, get) => ({
   hardDeleteCandidate: (id) =>
     set((s) => ({ candidates: s.candidates.filter((c) => c.id !== id) })),
 
-  clearUiFilters: () =>
-    set({
-      globalTimeRange: "all",
-      globalCustomStart: "",
-      globalCustomEnd: "",
-    }),
 }));

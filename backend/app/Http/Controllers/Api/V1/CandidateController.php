@@ -169,7 +169,7 @@ class CandidateController extends Controller
         $validated = $request->validate([
             'modules' => 'required|array',
             'modules.*.id' => 'required|integer|min:1|max:20',
-            'modules.*.score' => 'required|numeric|min:0|max:20',
+            'modules.*.score' => 'nullable|numeric|min:0|max:20',
         ]);
 
         $this->writeService->syncModuleGrades($candidate, $validated['modules']);

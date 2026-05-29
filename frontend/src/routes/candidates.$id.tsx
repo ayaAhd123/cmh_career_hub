@@ -15,6 +15,7 @@ import { formatGenderDisplay } from "@/lib/export-i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScoreOutOf20Input } from "@/components/score-out-of-20-input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,6 +56,10 @@ const DISCIPLINE_FIELDS: { key: keyof DisciplineSkills; label: string }[] = [
   { key: "communication", label: "Communication" },
   { key: "listening", label: "Sens de l'écoute" },
 ];
+
+function emptyNumericField(value: number | string | null | undefined): boolean {
+  return value === "" || value === "Not provided" || value === 0 || value === "0";
+}
 
 const WORK_FIELDS: { key: keyof WorkSkills; label: string }[] = [
   { key: "initiative", label: "Sens de l'initiative" },
@@ -174,12 +179,14 @@ function CandidateDetail() {
       lastName: candidate.lastName,
       email: candidate.email,
       phone: candidate.phone === "Not provided" ? "" : candidate.phone,
-      age: candidate.age === "Not provided" ? "" : candidate.age,
+      age: emptyNumericField(candidate.age) ? "" : candidate.age,
       gender: candidate.gender === "Not provided" ? "" : candidate.gender,
       recruitmentDate: candidate.recruitmentDate === "Not provided" ? "" : candidate.recruitmentDate,
       educationLevel: candidate.educationLevel === "Not provided" ? "" : candidate.educationLevel,
       diplomaName: candidate.diplomaName === "Not provided" ? "" : candidate.diplomaName,
-      diplomaAverage: candidate.diplomaAverage === "Not provided" ? "" : candidate.diplomaAverage,
+      diplomaAverage: emptyNumericField(candidate.diplomaAverage)
+        ? ""
+        : candidate.diplomaAverage,
       photo: candidate.photo || "",
       photoFile: null,
       photoPreview: candidate.photo || "",
@@ -270,18 +277,21 @@ function CandidateDetail() {
       persistSkills(next.skills);
       return next;
     });
-  const updateModuleScore = (moduleId: number, score: number) =>
+  const commitModuleGrade = (moduleId: number, score: number | null) => {
     setCandidate((current) => {
       if (!current) return current;
       const next = {
         ...current,
         modules: current.modules.map((m) =>
-          m.id === moduleId ? { ...m, score } : m,
+          m.id === moduleId
+            ? { ...m, score: score ?? 0, hasGrade: score !== null }
+            : m,
         ),
       };
       persistModules(next.modules);
       return next;
     });
+  };
 
   return (
     <div className="space-y-6">
@@ -647,19 +657,10 @@ function CandidateDetail() {
                       <td className="py-2 px-2 font-mono">{m.id}</td>
                       <td className="py-2 px-2 font-medium">{m.name}</td>
                       <td className="py-2 px-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={20}
-                          step={0.1}
-                          className="w-24"
+                        <ScoreOutOf20Input
                           value={m.score}
-                          onChange={(e) =>
-                            updateModuleScore(
-                              m.id,
-                              Math.min(20, Math.max(0, parseFloat(e.target.value) || 0)),
-                            )
-                          }
+                          hasGrade={m.hasGrade}
+                          onCommit={(score) => commitModuleGrade(m.id, score)}
                         />
                       </td>
                     </tr>
@@ -669,7 +670,9 @@ function CandidateDetail() {
               <div className="flex justify-between font-medium pt-4 border-t mt-3">
                 <span>Modules Average</span>
                 <span className="text-primary text-lg font-bold">
-                  {testsAvg(candidate.modules).toFixed(2)} / 20
+                  {candidate.modules.some((m) => m.hasGrade)
+                    ? `${testsAvg(candidate.modules).toFixed(2)} / 20`
+                    : "—"}
                 </span>
               </div>
             </CardContent>

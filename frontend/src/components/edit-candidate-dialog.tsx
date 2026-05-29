@@ -62,9 +62,17 @@ export function EditCandidateDialog({
       recruitmentDate: candidate.recruitmentDate,
       educationLevel: candidate.educationLevel,
       gender: candidate.gender,
-      age: candidate.age,
+      age:
+        candidate.age === "Not provided" || candidate.age === 0 || candidate.age === "0"
+          ? ""
+          : candidate.age,
       diplomaName: candidate.diplomaName,
-      diplomaAverage: candidate.diplomaAverage,
+      diplomaAverage:
+        candidate.diplomaAverage === "Not provided" ||
+        candidate.diplomaAverage === 0 ||
+        candidate.diplomaAverage === "0"
+          ? ""
+          : candidate.diplomaAverage,
       photo: candidate.photo ?? "",
       photoFile: null,
       photoPreview: candidate.photo ?? "",

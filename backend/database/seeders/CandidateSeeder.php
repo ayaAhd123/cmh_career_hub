@@ -58,6 +58,14 @@ class CandidateSeeder extends Seeder
         'MARKSPRINT' => [
             ['first_name' => 'Hassan', 'last_name' => 'Berrada', 'gender' => 'Homme', 'education_level' => 'Bac+3', 'diploma_specialty' => 'Marketing Digital', 'profile' => 'average'],
             ['first_name' => 'Kenza', 'last_name' => 'Filali', 'gender' => 'Femme', 'education_level' => 'Bac+2', 'diploma_specialty' => 'Communication', 'profile' => 'weak'],
+            ['first_name' => 'Ilyas', 'last_name' => 'Mansouri', 'gender' => 'Homme', 'education_level' => 'Bac+5', 'diploma_specialty' => 'Marketing Digital', 'profile' => 'strong'],
+            ['first_name' => 'Zineb', 'last_name' => 'Hajji', 'gender' => 'Femme', 'education_level' => 'Bac+3', 'diploma_specialty' => 'Communication', 'profile' => 'average'],
+        ],
+        'UIUXMASTER' => [
+            ['first_name' => 'Adam', 'last_name' => 'Bouazza', 'gender' => 'Homme', 'education_level' => 'Bac+5', 'diploma_specialty' => 'Design UX', 'profile' => 'strong'],
+            ['first_name' => 'Rim', 'last_name' => 'Chakir', 'gender' => 'Femme', 'education_level' => 'Bac+3', 'diploma_specialty' => 'Design Graphique', 'profile' => 'average'],
+            ['first_name' => 'Walid', 'last_name' => 'Senhaji', 'gender' => 'Homme', 'education_level' => 'Bac+2', 'diploma_specialty' => 'Multimedia', 'profile' => 'weak'],
+            ['first_name' => 'Hiba', 'last_name' => 'Touimi', 'gender' => 'Femme', 'education_level' => 'Bac+8', 'diploma_specialty' => 'Design UX', 'profile' => 'strong'],
         ],
         'WEBDEV2024' => [
             ['first_name' => 'Tarik', 'last_name' => 'Naciri', 'gender' => 'Homme', 'education_level' => 'Bac+5', 'diploma_specialty' => 'Génie Logiciel', 'profile' => 'strong', 'state' => 'Graduated'],

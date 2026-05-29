@@ -226,10 +226,15 @@ export async function updateCandidateModuleGradesApi(
   id: string,
   modules: ModuleScore[],
 ): Promise<CandidateDetail> {
+  const payload = modules.map((m) => ({
+    id: m.id,
+    score: m.hasGrade ? m.score : null,
+  }));
+
   const res = await apiFetch(apiUrl(`/api/v1/candidates/${id}/module-grades`), {
     method: "PUT",
     headers: authHeaders(),
-    body: JSON.stringify({ modules }),
+    body: JSON.stringify({ modules: payload }),
   });
 
   const data = await res.json();
