@@ -7,13 +7,23 @@
 
 ## 1. Diagramme d'activité
 
-Flux simplifié pour l’**administrateur CMH**. Trois vues : parcours global, évaluation candidat, rappels.
+Flux simplifié pour l’**administrateur CMH**. Chaque diagramme comporte un **point de début** ● et un **point de fin** ◎ (notation UML).
+
+| Symbole Mermaid | Signification UML |
+|-----------------|-------------------|
+| `((Point de début))` | État initial — début du flux |
+| `(((Point de fin)))` | État final — fin du flux |
+| Rectangle | Activité |
+| Losange | Décision |
 
 ### 1.1 Parcours global
 
 ```mermaid
 flowchart TD
-    start([Début]) --> login[Se connecter]
+    debut((Point de début))
+    fin(((Point de fin)))
+
+    debut --> login[Se connecter]
     login --> ok{Identifiants OK ?}
     ok -->|Non| login
     ok -->|Oui| dash[Tableau de bord]
@@ -29,7 +39,7 @@ flowchart TD
     autres --> dash
 
     choix -->|Quitter| out[Déconnexion]
-    out --> fin([Fin])
+    out --> fin
 ```
 
 | Étape | Description |
@@ -42,12 +52,17 @@ flowchart TD
 ### 1.2 Évaluer un candidat
 
 ```mermaid
-flowchart LR
-    A[Ouvrir fiche candidat] --> B[Saisir notes modules /20]
+flowchart TD
+    debut((Point de début))
+    fin(((Point de fin)))
+
+    debut --> A[Ouvrir fiche candidat]
+    A --> B[Saisir notes modules /20]
     B --> C[Saisir compétences /5]
     C --> D[Enregistrer via API]
     D --> E[Recalcul moyenne et catégorie]
-    E --> F([Retour liste / fiche])
+    E --> F[Retour liste ou fiche]
+    F --> fin
 ```
 
 | Étape | API |
@@ -59,14 +74,18 @@ flowchart LR
 ### 1.3 Rappels
 
 ```mermaid
-flowchart LR
-    A[Charger rappels] --> B[Générer alertes]
+flowchart TD
+    debut((Point de début))
+    fin(((Point de fin)))
+
+    debut --> A[Charger rappels]
+    A --> B[Générer alertes]
     B --> C[Retirer lus / ignorés / snoozés]
     C --> D[Afficher]
     D --> E{Action ?}
     E -->|Lu / Ignorer / Snooze 24h| F[(BDD utilisateur)]
     F --> D
-    E -->|Fermer| G([Fin])
+    E -->|Fermer| fin
 ```
 
 Alertes possibles : fin de promotion, effectif faible, profils incomplets, candidats critiques, baisse du taux de réussite.
@@ -75,9 +94,19 @@ Alertes possibles : fin de promotion, effectif faible, profils incomplets, candi
 
 ## 2. MCD — Modèle conceptuel de données
 
-Notation : entités en **MAJUSCULES**, associations en *italique*, cardinalités au format **(min, max)**.
+**But :** décrire le métier CMH **sans** parler de tables SQL ni de Laravel.
 
-### 2.1 Entités et attributs
+| | MCD (conceptuel) | MLD (logique) — section 3 |
+|--|------------------|---------------------------|
+| **Niveau** | Quoi existe dans le métier ? | Comment c’est stocké en base ? |
+| **Noms** | Français : CANDIDAT, *noter* | Tables anglaises : `candidates`, `module_grades` |
+| **Liens** | Associations : *contient*, *noter* | Clés étrangères : `promotion_id`, `candidate_id` |
+| **Types** | Domaines métier (dates, notes 0–20) | Types SQL (`bigint`, `decimal`, `enum`) |
+| **Exemple clé** | Association *noter* entre CANDIDAT et MODULE | Table `module_grades` (2 FK + `score`) |
+
+Notation MCD : entités en **MAJUSCULES**, associations en *italique*, cardinalités **(min, max)**.
+
+### 2.1 Entités et attributs (métier)
 
 | Entité | Attributs (identifiant souligné) |
 |--------|----------------------------------|
@@ -85,7 +114,7 @@ Notation : entités en **MAJUSCULES**, associations en *italique*, cardinalités
 | **PROMOTION** | <u>#id</u>, code_promo, nom, date_debut, date_fin, statut, date_creation, date_suppression |
 | **MODULE** | <u>#id</u>, nom, date_debut, date_fin, statut, ordre |
 | **CANDIDAT** | <u>#id</u>, prenom, nom, email, telephone, date_recrutement, age, genre, photo, niveau_etude, specialite_diplome, moyenne_diplome, etat, moyenne_globale, categorie, date_creation, date_suppression |
-| **COMPETENCE** | <u>#id</u>, categorie *(Discipline / Work Skills)*, nom_competence, note *(0 à 5)* |
+| **COMPETENCE** | categorie *(Discipline / Savoir-être)*, nom_competence, note *(0 à 5)* — rattachée à un candidat |
 | **PARAMETRE_SYSTEME** | <u>#id</u>, nom_entreprise, duree_defaut_jours, modules_par_promo, seuil_reussite |
 | **JOURNAL** | <u>#id</u>, type_cible, id_cible, type_action, description, horodatage |
 | **ETAT_RAPPEL** | <u>#id</u>, id_rappel, statut *(read / dismissed / snoozed)*, reporte_jusqua |
@@ -105,97 +134,38 @@ Notation : entités en **MAJUSCULES**, associations en *italique*, cardinalités
 
 **PARAMETRE_SYSTEME** : entité singleton (configuration globale CMH), sans association obligatoire vers les autres entités métier.
 
-### 2.3 Schéma MCD (vue graphique)
+### 2.3 Schéma MCD (vue graphique — métier)
+
+> Pas de tables ni de `FK` ici : les losanges sont des **associations**, pas des tables.
 
 ```mermaid
-erDiagram
-    UTILISATEUR {
-        bigint id PK
-        string nom_complet
-        string email UK
-        string mot_de_passe
-        enum role
-    }
+flowchart TB
+    UTILISATEUR["UTILISATEUR"]
+    PROMOTION["PROMOTION"]
+    MODULE["MODULE"]
+    CANDIDAT["CANDIDAT"]
+    COMPETENCE["COMPETENCE"]
+    PARAMETRE["PARAMETRE_SYSTEME"]
+    JOURNAL["JOURNAL"]
+    ETAT["ETAT_RAPPEL"]
+    EXPORT["EXPORT"]
 
-    PROMOTION {
-        bigint id PK
-        string code_promo UK
-        string nom
-        date date_debut
-        date date_fin
-        enum statut
-    }
+    CONTIENT{{contient}}
+    ACCUEILLE{{accueille}}
+    NOTER{{noter<br/>attribut : note}}
+    POSSede{{possède}}
+    ENREGISTRE{{enregistre}}
+    GERE{{gère}}
+    GENERE{{génère}}
 
-    MODULE {
-        bigint id PK
-        string nom
-        date date_debut
-        date date_fin
-        enum statut
-        int ordre
-    }
-
-    CANDIDAT {
-        bigint id PK
-        string prenom
-        string nom
-        string email UK
-        string telephone
-        date date_recrutement
-        enum etat
-        decimal moyenne_globale
-        enum categorie
-    }
-
-    NOTER {
-        decimal note "0-20"
-    }
-
-    COMPETENCE {
-        bigint id PK
-        enum categorie
-        string nom_competence
-        decimal note "0-5"
-    }
-
-    PARAMETRE_SYSTEME {
-        bigint id PK
-        string nom_entreprise
-        int duree_defaut_jours
-        int modules_par_promo
-        decimal seuil_reussite
-    }
-
-    JOURNAL {
-        bigint id PK
-        string type_cible
-        bigint id_cible
-        string type_action
-        text description
-    }
-
-    ETAT_RAPPEL {
-        bigint id PK
-        string id_rappel
-        enum statut
-        datetime reporte_jusqua
-    }
-
-    EXPORT {
-        bigint id PK
-        enum type_rapport
-        enum format
-        datetime date_generation
-    }
-
-    PROMOTION ||--|{ MODULE : contient
-    PROMOTION ||--o{ CANDIDAT : accueille
-    CANDIDAT ||--o{ NOTER : note
-    MODULE ||--o{ NOTER : note
-    CANDIDAT ||--|{ COMPETENCE : possede
-    UTILISATEUR ||--o{ JOURNAL : enregistre
-    UTILISATEUR ||--o{ ETAT_RAPPEL : gere
-    UTILISATEUR ||--o{ EXPORT : genere
+    PROMOTION -->|1,1| CONTIENT -->|1,n| MODULE
+    PROMOTION -->|0,1| ACCUEILLE -->|0,n| CANDIDAT
+    CANDIDAT -->|0,n| NOTER
+    MODULE -->|0,n| NOTER
+    CANDIDAT -->|1,1| POSSede -->|1,n| COMPETENCE
+    UTILISATEUR -->|1,1| ENREGISTRE -->|0,n| JOURNAL
+    UTILISATEUR -->|1,1| GERE -->|0,n| ETAT
+    UTILISATEUR -->|1,1| GENERE -->|0,n| EXPORT
 ```
 
 ### 2.4 Représentation textuelle (notation Chen)
@@ -235,9 +205,22 @@ erDiagram
 
 ## 3. MLD — Modèle logique de données
 
-Passage du MCD au schéma relationnel MySQL. Clés : **#** = clé primaire, **FK** = clé étrangère.
+**But :** traduire le MCD en **tables relationnelles MySQL** (schéma Laravel actuel).
 
-### 3.1 Tables métier
+Clés : **#** = clé primaire, **→** = clé étrangère.
+
+### 3.0 Règles MCD → MLD (pourquoi ce n’est pas pareil)
+
+| Élément MCD | Devient en MLD | Règle |
+|-------------|----------------|-------|
+| Entité PROMOTION | Table `promotions` | 1 entité = 1 table |
+| Association *contient* (1,n) | `modules.promotion_id` | FK placée côté « plusieurs » (n) |
+| Association *accueille* (0,1)–(0,n) | `candidates.promotion_id` **NULL** | Optionnel côté candidat |
+| Association *noter* + attribut **note** | Table `module_grades` | Association n–n avec attribut → **table de liaison** |
+| Entité COMPETENCE liée à CANDIDAT | Table `candidate_skills` | Entité faible / dépendante → table + `candidate_id` |
+| JOURNAL, EXPORT, ETAT_RAPPEL | `activity_logs`, `report_exports`, `user_reminder_states` | + `user_id` vers `users` |
+
+### 3.1 Tables métier (schéma physique)
 
 ```
 users (
@@ -358,23 +341,23 @@ report_exports (
 
 ### 3.2 Correspondance MCD → MLD
 
-| Concept MCD | Table MLD |
-|-------------|-----------|
-| UTILISATEUR | `users` |
-| PROMOTION | `promotions` |
-| MODULE | `modules` |
-| CANDIDAT | `candidates` |
-| Association *noter* | `module_grades` |
-| COMPETENCE | `candidate_skills` |
-| PARAMETRE_SYSTEME | `system_settings` |
-| JOURNAL | `activity_logs` |
-| ETAT_RAPPEL | `user_reminder_states` |
-| EXPORT | `report_exports` |
+| MCD (concept) | MLD (table) | Type de traduction |
+|---------------|-------------|-------------------|
+| UTILISATEUR | `users` | Entité → table |
+| PROMOTION | `promotions` | Entité → table |
+| MODULE | `modules` | Entité → table + FK |
+| CANDIDAT | `candidates` | Entité → table + FK optionnelle |
+| *noter* (association) | `module_grades` | **Pas une entité MCD** — table créée à la traduction |
+| COMPETENCE | `candidate_skills` | Entité dépendante → table |
+| PARAMETRE_SYSTEME | `system_settings` | Entité → table (singleton) |
+| JOURNAL | `activity_logs` | Entité → table + FK `user_id` |
+| ETAT_RAPPEL | `user_reminder_states` | Entité → table + FK `user_id` |
+| EXPORT | `report_exports` | Entité → table + FK `user_id` |
 
-### 3.3 Schéma relationnel (vue graphique)
+### 3.3 Schéma MLD (vue graphique — tables SQL)
 
-> Les entités doivent être déclarées avant les liaisons pour que Mermaid (GitHub, VS Code) rende le diagramme.  
-> `promotion_id` sur `candidates` est **nullable** (candidats non affectés).
+> Diagramme **physique** uniquement : noms de tables Laravel, clés `PK` / `FK`.  
+> Il n’y a **pas** d’association *noter* : elle a été transformée en table `module_grades`.
 
 ```mermaid
 erDiagram
@@ -477,37 +460,6 @@ erDiagram
     users ||--o{ activity_logs : user_id
     users ||--o{ user_reminder_states : user_id
     users ||--o{ report_exports : user_id
-```
-
-**Vue simplifiée (si le schéma complet est trop large)**
-
-```mermaid
-flowchart TB
-    subgraph core["Coeur metier"]
-        promotions[(promotions)]
-        modules[(modules)]
-        candidates[(candidates)]
-        module_grades[(module_grades)]
-        candidate_skills[(candidate_skills)]
-    end
-
-    subgraph admin["Administration"]
-        users[(users)]
-        activity_logs[(activity_logs)]
-        user_reminder_states[(user_reminder_states)]
-        report_exports[(report_exports)]
-    end
-
-    system_settings[(system_settings)]
-
-    promotions -->|1,n| modules
-    promotions -->|0,n| candidates
-    candidates -->|1,n| module_grades
-    modules -->|1,n| module_grades
-    candidates -->|1,n| candidate_skills
-    users -->|1,n| activity_logs
-    users -->|1,n| user_reminder_states
-    users -->|1,n| report_exports
 ```
 
 ### 3.4 Tables techniques (hors MCD métier)
