@@ -5,113 +5,71 @@
 
 ---
 
-## 1. Diagramme d'activité — Parcours administrateur
+## 1. Diagramme d'activité
 
-Ce diagramme décrit le flux principal : **connexion**, **consultation du tableau de bord**, **gestion d’un candidat** (notes modules + compétences) et **recalcul automatique** de la moyenne.
+Flux simplifié pour l’**administrateur CMH**. Trois vues : parcours global, évaluation candidat, rappels.
 
-### 1.1 Vue globale
-
-```mermaid
-flowchart TD
-    start([Début])
-    login[Saisir email et mot de passe]
-    auth{Identifiants valides ?}
-    token[Recevoir token Sanctum]
-    reject[Afficher erreur]
-    endLogin([Fin — écran login])
-
-    dash[Charger tableau de bord<br/>GET /dashboard/stats]
-    filt{Filtrer par période ?}
-    applyFilt[Appliquer filtre temporel global]
-    showKpi[Afficher KPIs, graphiques,<br/>top promotions]
-
-    action{Action admin ?}
-    promo[Gérer promotions]
-    cand[Gérer candidats]
-    rappel[Consulter rappels]
-    export[Générer export]
-    ia[Conseiller IA]
-    profil[Modifier profil]
-
-    selectCand[Sélectionner un candidat]
-    grades[Saisir notes modules /20]
-    syncGrades[PUT module-grades]
-    obs[Observer recalcule overall_avg<br/>et category]
-    skills[Saisir soft skills /5]
-    syncSkills[PUT skills]
-    status{Changer statut ?}
-    chgStatus[PATCH status<br/>Active / Graduated / …]
-    saveOk[Afficher candidat mis à jour]
-
-    logout[Déconnexion]
-    stop([Fin])
-
-    start --> login --> auth
-    auth -->|Non| reject --> endLogin
-    auth -->|Oui| token --> dash
-    dash --> filt
-    filt -->|Oui| applyFilt --> showKpi
-    filt -->|Non| showKpi
-    showKpi --> action
-
-    action -->|Promotions| promo --> action
-    action -->|Candidats| cand --> selectCand
-    selectCand --> grades --> syncGrades --> obs
-    obs --> skills --> syncSkills --> status
-    status -->|Oui| chgStatus --> saveOk
-    status -->|Non| saveOk
-    saveOk --> action
-
-    action -->|Rappels| rappel --> action
-    action -->|Rapports| export --> action
-    action -->|IA| ia --> action
-    action -->|Profil| profil --> action
-    action -->|Quitter| logout --> stop
-```
-
-### 1.2 Activité — Génération et traitement des rappels
+### 1.1 Parcours global
 
 ```mermaid
 flowchart TD
-    start([GET /reminders])
-    gen[RemindersService.generate]
-    rules[Vérifier règles métier]
-    finPromo[Fin de promotion proche]
-    effectif[Effectif faible]
-    incomplet[Profils incomplets]
-    critique[Candidats catégorie Critique]
-    passRate[PassRateAlertService<br/>chute du taux de réussite]
-    merge[Fusionner liste de rappels]
-    filter[ReminderStateService<br/>exclure lus / dismiss / snooze]
-    display[Afficher popover + bannière]
-    interact{Action utilisateur ?}
-    read[POST …/read]
-    dismiss[POST …/dismiss]
-    snooze[POST …/snooze 24h]
-    persist[(user_reminder_states)]
-    stop([Fin])
+    start([Début]) --> login[Se connecter]
+    login --> ok{Identifiants OK ?}
+    ok -->|Non| login
+    ok -->|Oui| dash[Tableau de bord]
 
-    start --> gen --> rules
-    rules --> finPromo --> merge
-    rules --> effectif --> merge
-    rules --> incomplet --> merge
-    rules --> critique --> merge
-    rules --> passRate --> merge
-    merge --> filter --> display --> interact
-    interact -->|Lu| read --> persist --> stop
-    interact -->|Ignorer| dismiss --> persist --> stop
-    interact -->|Reporter| snooze --> persist --> stop
-    interact -->|Aucune| stop
+    dash --> choix{Que faire ?}
+    choix -->|Promotions / candidats| crud[Gérer les données]
+    choix -->|Évaluer| eval[Évaluer un candidat]
+    choix -->|Rappels| notif[Consulter rappels]
+    choix -->|Rapports / IA / Profil| autres[Autres écrans]
+    crud --> dash
+    eval --> dash
+    notif --> dash
+    autres --> dash
+
+    choix -->|Quitter| out[Déconnexion]
+    out --> fin([Fin])
 ```
 
-### Légende
+| Étape | Description |
+|-------|-------------|
+| Connexion | API `POST /auth/login` → token Sanctum |
+| Tableau de bord | KPIs, filtres de période, promotions actives |
+| Gérer les données | CRUD promotions et candidats |
+| Autres écrans | Exports, conseiller IA, paramètres profil |
 
-| Symbole | Signification |
-|---------|----------------|
-| Rectangle | Action / activité |
-| Losange | Décision (garde) |
-| Cylindre | Stockage persistant |
-| Rond | Début / fin |
+### 1.2 Évaluer un candidat
+
+```mermaid
+flowchart LR
+    A[Ouvrir fiche candidat] --> B[Saisir notes modules /20]
+    B --> C[Saisir compétences /5]
+    C --> D[Enregistrer via API]
+    D --> E[Recalcul moyenne et catégorie]
+    E --> F([Retour liste / fiche])
+```
+
+| Étape | API |
+|-------|-----|
+| Notes modules | `PUT …/module-grades` |
+| Compétences | `PUT …/skills` |
+| Recalcul auto | `ModuleGradeObserver` → `overall_avg`, `category` |
+
+### 1.3 Rappels
+
+```mermaid
+flowchart LR
+    A[Charger rappels] --> B[Générer alertes]
+    B --> C[Retirer lus / ignorés / snoozés]
+    C --> D[Afficher]
+    D --> E{Action ?}
+    E -->|Lu / Ignorer / Snooze 24h| F[(BDD utilisateur)]
+    F --> D
+    E -->|Fermer| G([Fin])
+```
+
+Alertes possibles : fin de promotion, effectif faible, profils incomplets, candidats critiques, baisse du taux de réussite.
 
 ---
 
@@ -231,9 +189,9 @@ erDiagram
     }
 
     PROMOTION ||--|{ MODULE : contient
-    PROMOTION |o--o{ CANDIDAT : accueille
-    CANDIDAT }o--o{ NOTER : ""
-    MODULE }o--o{ NOTER : ""
+    PROMOTION ||--o{ CANDIDAT : accueille
+    CANDIDAT ||--o{ NOTER : note
+    MODULE ||--o{ NOTER : note
     CANDIDAT ||--|{ COMPETENCE : possede
     UTILISATEUR ||--o{ JOURNAL : enregistre
     UTILISATEUR ||--o{ ETAT_RAPPEL : gere
@@ -415,18 +373,141 @@ report_exports (
 
 ### 3.3 Schéma relationnel (vue graphique)
 
+> Les entités doivent être déclarées avant les liaisons pour que Mermaid (GitHub, VS Code) rende le diagramme.  
+> `promotion_id` sur `candidates` est **nullable** (candidats non affectés).
+
 ```mermaid
 erDiagram
-    users ||--o{ activity_logs : "user_id"
-    users ||--o{ user_reminder_states : "user_id"
-    users ||--o{ report_exports : "user_id"
+    users {
+        bigint id PK
+        string full_name
+        string email UK
+        string password
+        enum role
+        timestamp deleted_at
+    }
 
-    promotions ||--o{ modules : "promotion_id"
-    promotions o|--o{ candidates : "promotion_id"
+    promotions {
+        bigint id PK
+        string promo_code UK
+        string name
+        date start_date
+        date end_date
+        enum status
+        timestamp deleted_at
+    }
 
-    candidates ||--o{ module_grades : "candidate_id"
-    modules ||--o{ module_grades : "module_id"
-    candidates ||--o{ candidate_skills : "candidate_id"
+    modules {
+        bigint id PK
+        bigint promotion_id FK
+        string name
+        date module_date_debut
+        date module_date_fin
+        enum status
+        tinyint module_order
+    }
+
+    candidates {
+        bigint id PK
+        bigint promotion_id FK
+        string first_name
+        string last_name
+        string email UK
+        string phone
+        date recruitment_date
+        enum state
+        decimal overall_avg
+        enum category
+        timestamp deleted_at
+    }
+
+    module_grades {
+        bigint id PK
+        bigint candidate_id FK
+        bigint module_id FK
+        decimal score
+    }
+
+    candidate_skills {
+        bigint id PK
+        bigint candidate_id FK
+        enum category
+        string skill_name
+        decimal score
+    }
+
+    system_settings {
+        bigint id PK
+        string company_name
+        int default_duration_days
+        int modules_per_promo
+        decimal passing_threshold
+    }
+
+    activity_logs {
+        bigint id PK
+        bigint user_id FK
+        string target_type
+        bigint target_id
+        string action_type
+        text description
+    }
+
+    user_reminder_states {
+        bigint id PK
+        bigint user_id FK
+        string reminder_id
+        enum status
+        datetime snoozed_until
+    }
+
+    report_exports {
+        bigint id PK
+        bigint user_id FK
+        enum report_type
+        enum format
+        timestamp generated_at
+    }
+
+    promotions ||--o{ modules : promotion_id
+    promotions ||--o{ candidates : promotion_id
+    candidates ||--o{ module_grades : candidate_id
+    modules ||--o{ module_grades : module_id
+    candidates ||--o{ candidate_skills : candidate_id
+    users ||--o{ activity_logs : user_id
+    users ||--o{ user_reminder_states : user_id
+    users ||--o{ report_exports : user_id
+```
+
+**Vue simplifiée (si le schéma complet est trop large)**
+
+```mermaid
+flowchart TB
+    subgraph core["Coeur metier"]
+        promotions[(promotions)]
+        modules[(modules)]
+        candidates[(candidates)]
+        module_grades[(module_grades)]
+        candidate_skills[(candidate_skills)]
+    end
+
+    subgraph admin["Administration"]
+        users[(users)]
+        activity_logs[(activity_logs)]
+        user_reminder_states[(user_reminder_states)]
+        report_exports[(report_exports)]
+    end
+
+    system_settings[(system_settings)]
+
+    promotions -->|1,n| modules
+    promotions -->|0,n| candidates
+    candidates -->|1,n| module_grades
+    modules -->|1,n| module_grades
+    candidates -->|1,n| candidate_skills
+    users -->|1,n| activity_logs
+    users -->|1,n| user_reminder_states
+    users -->|1,n| report_exports
 ```
 
 ### 3.4 Tables techniques (hors MCD métier)
